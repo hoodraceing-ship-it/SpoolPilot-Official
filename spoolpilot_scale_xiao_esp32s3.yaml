@@ -26,7 +26,7 @@ esphome:
   friendly_name: SpoolPilot Scale
   project:
     name: spoolpilot.scale
-    version: "0.1.2"
+    version: "0.1.3"
   on_boot:
     priority: 600
     then:
@@ -253,11 +253,13 @@ interval:
   # from the sensor stream — it must be timed.  When the last >=0.3 g change was
   # >= 750 ms ago (≈2 missed 400 ms SMA emissions), declare the weight stable
   # and push it once: the value is frozen, so no on_value will do it for us.
+  # Three seconds prevents tare/calibration while the median + moving-average
+  # pipeline is still converging after boot or a physical disturbance.
   - interval: 250ms
     then:
       - lambda: |-
           if (!id(scale_is_stable) && id(scale_last_change_ms) != 0 &&
-              (millis() - id(scale_last_change_ms)) >= 750) {
+              (millis() - id(scale_last_change_ms)) >= 3000) {
             id(scale_is_stable) = true;
             bambuddy->on_scale_reading(id(scale_last_grams), true, 0);
           }

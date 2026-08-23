@@ -12,7 +12,7 @@ name: ESPHome Compile
 on:
   push:
     branches: [main]
-    paths: &config_paths
+    paths:
       - 'components/**'
       - 'espoolbuddy/**'
       - 'spoolpilot_console_crowpanel.yaml'
@@ -21,7 +21,13 @@ on:
       - '.github/workflows/esphome-compile.yml'
   pull_request:
     branches: [main]
-    paths: *config_paths
+    paths:
+      - 'components/**'
+      - 'espoolbuddy/**'
+      - 'spoolpilot_console_crowpanel.yaml'
+      - 'spoolpilot_scale_xiao_esp32s3.yaml'
+      - 'secrets.yaml.example'
+      - '.github/workflows/esphome-compile.yml'
   workflow_dispatch:
 
 concurrency:

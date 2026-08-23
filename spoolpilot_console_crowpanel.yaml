@@ -28,7 +28,7 @@ esphome:
 
   project:
     name: spoolpilot.console
-    version: "0.1.1"
+    version: "0.1.2"
 
   on_boot:
 

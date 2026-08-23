@@ -1,0 +1,510 @@
+obj:
+  id: content_barcode
+  x: 0
+  y: 45
+  width: 800
+  height: 375
+  styles: sty_panel
+  scrollbar_mode: "OFF"
+  hidden: true
+  widgets:
+    # Shared title bar, matching the simulator's centered cyan title.
+    - obj:
+        x: 0
+        y: 0
+        width: 800
+        height: 46
+        bg_color: 0x05070D
+        bg_opa: COVER
+        border_width: 0
+        pad_all: 0
+        scrollbar_mode: "OFF"
+        widgets:
+          - label:
+              x: 0
+              width: 800
+              text: "Barcode"
+              text_font: roboto_20
+              text_color: 0x18E6DF
+              text_align: CENTER
+              align: CENTER
+          - button:
+              x: 12
+              y: 7
+              width: 92
+              height: 32
+              bg_color: 0x111827
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 6
+              scrollbar_mode: "OFF"
+              on_click:
+                then:
+                  - script.execute: nav_back
+              widgets:
+                - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+          - button:
+              x: 114
+              y: 7
+              width: 92
+              height: 32
+              bg_color: 0x111827
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 6
+              scrollbar_mode: "OFF"
+              on_click:
+                then:
+                  - script.execute: nav_home
+              widgets:
+                - label: {text: "Home", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+
+    # ---------------- Scan home ----------------
+    - obj:
+        id: barcode_scan_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        widgets:
+          - label:
+              x: 0
+              y: 45
+              width: 800
+              text: "▥"
+              text_font: roboto_40
+              text_color: 0x9A9CB5
+              text_align: CENTER
+              align: TOP_LEFT
+          - label:
+              x: 0
+              y: 104
+              width: 800
+              text: "Scan Barcode"
+              text_font: roboto_28
+              text_color: 0xF3F5FA
+              text_align: CENTER
+              align: TOP_LEFT
+          - label:
+              x: 0
+              y: 150
+              width: 800
+              text: "Scan the barcode on the filament box or spool"
+              text_font: roboto_16
+              text_color: 0x9A9CB5
+              text_align: CENTER
+              align: TOP_LEFT
+          - button:
+              id: btn_barcode_manual
+              x: 280
+              y: 190
+              width: 240
+              height: 42
+              bg_color: 0x111827
+              border_color: 0x18E6DF
+              border_width: 1
+              radius: 8
+              scrollbar_mode: "OFF"
+              on_click:
+                then:
+                  - lambda: |-
+                      lv_label_set_text(id(lbl_status), "Manual barcode entry - next Barcode pass");
+                      lv_obj_clear_flag(id(lbl_status), LV_OBJ_FLAG_HIDDEN);
+              widgets:
+                - label: {text: "Enter Barcode Manually", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+
+          # Temporary physical test controls are intentionally subtle and live at
+          # the bottom; they disappear when the GM861 UART is wired.
+          - button:
+              x: 210
+              y: 238
+              width: 180
+              height: 54
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=1;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {text: "DEV: Known", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}
+          - button:
+              x: 410
+              y: 238
+              width: 180
+              height: 54
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=2;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {text: "DEV: Unknown", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}
+
+    # ---------------- Recognized barcode ----------------
+    - obj:
+        id: barcode_review_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 0, y: 26, width: 800, text: "Filament Found", text_font: roboto_20, text_color: 0x55D66B, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 68, width: 800, text: "SUNLU PLA Dual Color", text_font: roboto_28, text_color: 0xF3F5FA, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 113, width: 800, text: "Black / Blue", text_font: roboto_16, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 145, width: 800, text: "1.75 mm   1000 g   011300504640107", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+          - button:
+              x: 36
+              y: 235
+              width: 340
+              height: 70
+              bg_color: 0x3A1414
+              border_color: 0x6A2626
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=2;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {text: "Reselect", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+          - button:
+              x: 424
+              y: 235
+              width: 340
+              height: 70
+              bg_color: 0x10131D
+              border_color: 0x18E6DF
+              border_width: 2
+              radius: 8
+              on_click:
+                then:
+                  - script.execute: barcode_start_weigh
+              widgets:
+                - label: {text: "Add to Bambuddy", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+
+    # ---------------- Unknown barcode / DB picker ----------------
+    - obj:
+        id: barcode_candidates_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 16, y: 10, width: 300, text: "Barcode not found", text_font: roboto_20, text_color: 0xFFAA44, align: TOP_LEFT}
+          - label: {x: 330, y: 13, width: 230, text: "X004PC1M1B", text_font: roboto_16, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+          - button:
+              x: 575
+              y: 5
+              width: 205
+              height: 38
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 6
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=3;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {text: "+ Create Filament", text_font: roboto_12, text_color: 0x18E6DF, align: CENTER}
+          - obj:
+              x: 14
+              y: 55
+              width: 772
+              height: 48
+              bg_opa: TRANSP
+              border_width: 0
+              widgets:
+                - button:
+                    x: 0
+                    y: 0
+                    width: 375
+                    height: 44
+                    bg_color: 0x10131D
+                    border_color: 0x252A3A
+                    border_width: 1
+                    radius: 6
+                    widgets:
+                      - label: {text: "Brand: All", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                - button:
+                    x: 397
+                    y: 0
+                    width: 375
+                    height: 44
+                    bg_color: 0x10131D
+                    border_color: 0x252A3A
+                    border_width: 1
+                    radius: 6
+                    widgets:
+                      - label: {text: "Material: All", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+          - button:
+              x: 14
+              y: 116
+              width: 772
+              height: 60
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 7
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=1;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {x: 14, width: 570, text: "SUNLU  ·  PLA  ·  Dual Color Black/Blue", text_font: roboto_16, text_color: 0xF3F5FA, align: LEFT_MID}
+                - label: {x: 640, width: 115, text: "Select", text_font: roboto_12, text_color: 0x18E6DF, align: LEFT_MID}
+          - button:
+              x: 14
+              y: 184
+              width: 772
+              height: 60
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 7
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=1;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {x: 14, width: 570, text: "SUNLU  ·  PLA+  ·  Black", text_font: roboto_16, text_color: 0xF3F5FA, align: LEFT_MID}
+                - label: {x: 640, width: 115, text: "Select", text_font: roboto_12, text_color: 0x18E6DF, align: LEFT_MID}
+          - label: {x: 0, y: 270, width: 800, text: "Full SpoolmanDB filtering is wired in the scanner/backend stage", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+
+    # ---------------- Create Filament ----------------
+    - obj:
+        id: barcode_create_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 16, y: 8, width: 300, text: "Create Filament", text_font: roboto_20, text_color: 0xF3F5FA, align: TOP_LEFT}
+          - label: {x: 18, y: 50, width: 160, text: "Brand *", text_font: roboto_12, text_color: 0xFF6B6B, align: TOP_LEFT}
+          - button: {x: 150, y: 40, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "Tap to enter", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}}]}
+          - label: {x: 415, y: 50, width: 160, text: "Material *", text_font: roboto_12, text_color: 0xFF6B6B, align: TOP_LEFT}
+          - button: {x: 545, y: 40, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "Tap to enter", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}}]}
+          - label: {x: 18, y: 103, width: 160, text: "Product / Line", text_font: roboto_12, text_color: 0x9A9CB5, align: TOP_LEFT}
+          - button: {x: 150, y: 93, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "Optional", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}}]}
+          - label: {x: 415, y: 103, width: 160, text: "Color", text_font: roboto_12, text_color: 0x9A9CB5, align: TOP_LEFT}
+          - button: {x: 545, y: 93, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "Optional", text_font: roboto_12, text_color: 0x9A9CB5, align: CENTER}}]}
+          - label: {x: 18, y: 156, width: 160, text: "Weight *", text_font: roboto_12, text_color: 0xFF6B6B, align: TOP_LEFT}
+          - button: {x: 150, y: 146, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "0 g", text_font: roboto_16, text_color: 0xF3F5FA, align: CENTER}}]}
+          - label: {x: 415, y: 156, width: 160, text: "Diameter", text_font: roboto_12, text_color: 0x9A9CB5, align: TOP_LEFT}
+          - button: {x: 545, y: 146, width: 235, height: 44, bg_color: 0x10131D, border_color: 0x252A3A, border_width: 1, radius: 6, widgets: [{label: {text: "1.75 mm", text_font: roboto_16, text_color: 0xF3F5FA, align: CENTER}}]}
+          - obj:
+              x: 18
+              y: 202
+              width: 762
+              height: 52
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 6
+              widgets:
+                - label: {x: 12, width: 180, text: "Scale  -- g", text_font: roboto_16, text_color: 0x18E6DF, align: LEFT_MID}
+                - label: {x: 205, width: 300, text: "Use Scale unlocks after 5 stable seconds", text_font: roboto_12, text_color: 0x9A9CB5, align: LEFT_MID}
+                - button: {x: 592, y: 5, width: 158, height: 42, bg_color: 0x24242C, border_width: 0, radius: 6, widgets: [{label: {text: "Use Scale", text_font: roboto_12, text_color: 0x666677, align: CENTER}}]}
+          - button:
+              x: 18
+              y: 266
+              width: 370
+              height: 54
+              bg_color: 0x3A1414
+              border_width: 0
+              radius: 7
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=2;'
+                  - script.execute: barcode_render
+              widgets:
+                - label: {text: "Cancel", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+          - button:
+              x: 412
+              y: 266
+              width: 370
+              height: 54
+              bg_color: 0x24242C
+              border_width: 0
+              radius: 7
+              widgets:
+                - label: {text: "Add to Bambuddy", text_font: roboto_16, text_color: 0x666677, align: CENTER}
+
+    # ---------------- Weigh ----------------
+    - obj:
+        id: barcode_weigh_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 0, y: 22, width: 800, text: "Weigh Filament", text_font: roboto_20, text_color: 0xF3F5FA, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 54, width: 800, text: "SUNLU PLA Dual Color", text_font: roboto_12, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+          - button:
+              x: 34
+              y: 105
+              width: 180
+              height: 86
+              bg_color: 0x10131D
+              border_color: 0x252A3A
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - lambda: bambuddy->request_tare();
+                  - lambda: 'id(barcode_weight_started_ms)=0; id(barcode_weight_locked)=false;'
+              widgets:
+                - label: {text: "Tare", text_font: roboto_20, text_color: 0x18E6DF, align: CENTER}
+          - label: {x: 220, y: 92, width: 360, text: "Put spool on scale", text_font: roboto_16, text_color: 0xF3F5FA, text_align: CENTER, align: TOP_LEFT}
+          - label:
+              id: barcode_weight_value
+              x: 220
+              y: 122
+              width: 360
+              text: "0 g"
+              text_font: roboto_40
+              text_color: 0x18E6DF
+              text_align: CENTER
+              align: TOP_LEFT
+          - label:
+              id: barcode_weight_status
+              x: 190
+              y: 178
+              width: 420
+              text: "Waiting for stable weight..."
+              text_font: roboto_12
+              text_color: 0x9A9CB5
+              text_align: CENTER
+              align: TOP_LEFT
+          - button:
+              x: 586
+              y: 105
+              width: 180
+              height: 86
+              bg_color: 0x3A1414
+              border_color: 0x6A2626
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - script.execute: barcode_start_nfc
+              widgets:
+                - label: {text: "Skip", text_font: roboto_20, text_color: 0xFF6B6B, align: CENTER}
+          - button:
+              id: btn_barcode_weight_continue
+              x: 250
+              y: 238
+              width: 300
+              height: 62
+              bg_color: 0x10131D
+              border_color: 0x18E6DF
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - script.execute: barcode_start_nfc
+              widgets:
+                - label: {text: "Continue", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+
+    # ---------------- Await NFC ----------------
+    - obj:
+        id: barcode_await_nfc_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 0, y: 48, width: 800, text: "◉", text_font: roboto_40, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 104, width: 800, text: "Scan NFC Tag", text_font: roboto_28, text_color: 0xF3F5FA, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 151, width: 800, text: "SUNLU PLA Dual Color · Black / Blue", text_font: roboto_16, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 184, width: 800, text: "Place a blank tag on the PN532 reader", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+          - button:
+              x: 250
+              y: 244
+              width: 300
+              height: 60
+              bg_color: 0x3A1414
+              border_color: 0x6A2626
+              border_width: 1
+              radius: 8
+              on_click:
+                then:
+                  - lambda: 'id(barcode_mode)=6;'
+                  - script.execute: barcode_render
+                  - script.execute: barcode_ready_return
+              widgets:
+                - label: {text: "Skip NFC Tag", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+
+    # ---------------- Complete ----------------
+    - obj:
+        id: barcode_complete_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 0, y: 70, width: 800, text: "✓", text_font: roboto_40, text_color: 0x55D66B, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 128, width: 800, text: "Spool Ready", text_font: roboto_28, text_color: 0x55D66B, text_align: CENTER, align: TOP_LEFT}
+          - label: {x: 0, y: 178, width: 800, text: "Returning to Barcode...", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+
+    # ---------------- Help ----------------
+    - obj:
+        id: barcode_help_panel
+        x: 0
+        y: 46
+        width: 800
+        height: 329
+        styles: sty_panel
+        scrollbar_mode: "OFF"
+        hidden: true
+        widgets:
+          - label: {x: 25, y: 24, width: 750, text: "Barcode Help", text_font: roboto_20, text_color: 0x18E6DF, align: TOP_LEFT}
+          - label:
+              x: 25
+              y: 68
+              width: 750
+              height: 150
+              text: "Known barcodes open the filament review page. Unknown barcodes open the SpoolmanDB picker. After Add to Bambuddy, weigh the spool or skip, then scan an NFC tag or skip."
+              text_font: roboto_16
+              text_color: 0x9A9CB5
+              long_mode: WRAP
+              align: TOP_LEFT
+          - button:
+              x: 250
+              y: 246
+              width: 300
+              height: 58
+              bg_color: 0x3A1414
+              border_width: 0
+              radius: 8
+              on_click:
+                then:
+                  - script.execute: barcode_home
+              widgets:
+                - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}

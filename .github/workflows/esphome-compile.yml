@@ -1,0 +1,77 @@
+name: ESPHome Compile
+
+# Compile-checks the two canonical SpoolPilot firmware configurations against
+# the latest ESPHome release. Both configurations use this checkout's local
+# components, keeping the UI, schema, and C++ implementation on one version.
+#
+# Email noise is kept low by only running on pull requests and pushes to main
+# (not every feature-branch push), skipping doc-only changes via the paths
+# filter, and cancelling superseded runs with the concurrency group below.
+# Add "[skip ci]" to a commit message to skip a run entirely.
+
+on:
+  push:
+    branches: [main]
+    paths: &config_paths
+      - 'components/**'
+      - 'espoolbuddy/**'
+      - 'spoolpilot_console_crowpanel.yaml'
+      - 'spoolpilot_scale_xiao_esp32s3.yaml'
+      - 'secrets.yaml.example'
+      - '.github/workflows/esphome-compile.yml'
+  pull_request:
+    branches: [main]
+    paths: *config_paths
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    name: Compile ${{ matrix.config }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Console = display + LVGL + bambuddy_api (console mode) + bambuddy_nfc.
+        # Scale   = HX711 + status LED + bambuddy_api (scale_mode) + bambuddy_nfc.
+        # Together they cover both build modes of the shared components.
+        config:
+          - spoolpilot_console_crowpanel.yaml
+          - spoolpilot_scale_xiao_esp32s3.yaml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install latest ESPHome
+        run: pip install -U esphome
+
+      - name: Cache PlatformIO toolchain & frameworks
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ runner.os }}-${{ hashFiles('spoolpilot_console_crowpanel.yaml', 'spoolpilot_scale_xiao_esp32s3.yaml') }}
+          restore-keys: |
+            platformio-${{ runner.os }}-
+
+      - name: Provide secrets file
+        run: |
+          cp secrets.yaml.example secrets.yaml
+          sed -i "s|api_encryption_key: \".*\"|api_encryption_key: \"$(openssl rand -base64 32)\"|" secrets.yaml
+
+      - name: Validate config
+        run: esphome config ${{ matrix.config }}
+
+      - name: Compile firmware
+        run: esphome compile ${{ matrix.config }}

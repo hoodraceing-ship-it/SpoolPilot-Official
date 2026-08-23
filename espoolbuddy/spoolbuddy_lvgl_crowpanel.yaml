@@ -1,0 +1,1848 @@
+# ============================================================================
+# LVGL — native 800×480 SpoolPilot UI
+#
+#   Header     y=0    h=45   title + status message + wifi + api icons
+#   Content    y=45   h=375  one of 5 stacked containers (AMS/NFC/Barcode/Scale/Cfg)
+#   Bottom nav y=420  h=60   5 icon+label buttons
+# ============================================================================
+lvgl:
+  displays:
+    - main_display
+  touchscreens:
+    - touch_screen
+  buffer_size: 100%
+  color_depth: 16
+  bg_color: 0x080A12
+  default_font: roboto_16
+
+  style_definitions:
+    - id: sty_bar
+      bg_color: 0x05070D
+      bg_opa: COVER
+      border_width: 0
+      pad_all: 0
+    - id: sty_panel
+      bg_color: 0x080A12
+      bg_opa: COVER
+      border_width: 0
+      pad_all: 0
+    - id: sty_card
+      bg_color: 0x10131D
+      bg_opa: COVER
+      border_width: 0
+      radius: 6
+      pad_all: 0
+    - id: sty_ams_row
+      bg_color: 0x10131D
+      bg_opa: COVER
+      border_width: 1
+      border_color: 0x252A3A
+      border_opa: COVER
+      radius: 6
+      pad_all: 0
+    - id: sty_navbtn
+      bg_color: 0x05070D
+      bg_opa: COVER
+      border_width: 0
+      radius: 0
+      pad_all: 0
+    - id: sty_accent_btn
+      bg_color: 0x1A2A50
+      border_color: 0x4A7ACC
+      border_width: 1
+      text_color: 0x7BB4FF
+      radius: 6
+
+  pages:
+    - id: main_page
+      widgets:
+        - obj:
+            x: 0
+            y: 0
+            width: 800
+            height: 480
+            bg_color: 0x080A12
+            border_width: 0
+            pad_all: 0
+            scrollbar_mode: "OFF"
+            widgets:
+
+              # ---------------- HEADER (y0 h30) ----------------
+              # Title (left) + scrolling status message (middle) + wifi/api
+              # status icons (right), all on one bar. Folding the status into
+              # the header reclaims the old 24px status strip for the content.
+              - obj:
+                  x: 0
+                  y: 0
+                  width: 800
+                  height: 45
+                  styles: sty_bar
+                  scrollbar_mode: "OFF"
+                  widgets:
+                    - label:
+                        x: 13
+                        y: 0
+                        height: 45
+                        # SpoolPilot brand title with the first word highlighted.
+                        text: "#4ECDC4 Spool#Pilot"
+                        text_font: roboto_20
+                        text_color: 0xE0E0FF
+                        recolor: true
+                        align: LEFT_MID
+                    # Clock + status share one slot centred between the title and
+                    # the status icons. The UI interval lambda shows the status
+                    # message (scrolling) when there is one, else the clock. Both
+                    # have no fixed height so the LEFT_MID anchor centres them
+                    # vertically (matching the icons).
+                    - label:
+                        id: lbl_status
+                        x: 220
+                        y: 0
+                        width: 373
+                        text: ""
+                        text_font: roboto_12
+                        text_color: 0xCCCCDD
+                        long_mode: SCROLL_CIRCULAR
+                        text_align: CENTER
+                        align: LEFT_MID
+                        hidden: true
+                    - label:
+                        id: lbl_clock
+                        x: 220
+                        y: 0
+                        width: 373
+                        text: "--:--"
+                        text_font: roboto_16
+                        text_color: 0xE0E0FF
+                        text_align: CENTER
+                        align: LEFT_MID
+                    - label:
+                        id: ic_wifi
+                        x: 600
+                        y: 0
+                        width: 38
+                        height: 45
+                        text: "\U000F05AA"
+                        text_font: mdi_24
+                        text_color: 0x9A9CB5
+                        align: LEFT_MID
+                    - label:
+                        id: ic_api
+                        x: 638
+                        y: 0
+                        width: 38
+                        height: 45
+                        text: "\U000F0164"
+                        text_font: mdi_24
+                        text_color: 0x9A9CB5
+                        align: LEFT_MID
+                    - label:
+                        id: ic_scale
+                        x: 676
+                        y: 0
+                        width: 38
+                        height: 45
+                        text: "\U000F0472"
+                        text_font: mdi_24
+                        text_color: 0x9A9CB5
+                        align: LEFT_MID
+                    - label:
+                        id: ic_printer
+                        x: 714
+                        y: 0
+                        width: 38
+                        height: 45
+                        text: "\U000F042B"
+                        text_font: mdi_24
+                        text_color: 0x9A9CB5
+                        align: LEFT_MID
+                    - obj:
+                        id: ic_db
+                        x: 752
+                        y: 0
+                        width: 38
+                        height: 45
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - image:
+                              src: img_icon_spoolman
+                              y: -13
+                              image_recolor: 0x18E6DF
+                              image_recolor_opa: COVER
+                              align: CENTER
+
+              # ================ CONTENT: SCALE ================
+              - obj:
+                  id: content_scale
+                  x: 0
+                  y: 45
+                  width: 800
+                  height: 375
+                  styles: sty_panel
+                  scrollbar_mode: "OFF"
+                  hidden: true
+                  widgets:
+                    - obj:
+                        id: scale_titlebar
+                        x: 0
+                        y: 0
+                        width: 800
+                        height: 46
+                        bg_color: 0x05070D
+                        bg_opa: COVER
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - button:
+                              x: 12
+                              y: 7
+                              width: 92
+                              height: 32
+                              bg_color: 0x111827
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 6
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - script.execute: nav_back
+                              widgets:
+                                - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+                          - button:
+                              x: 114
+                              y: 7
+                              width: 92
+                              height: 32
+                              bg_color: 0x111827
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 6
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - script.execute: nav_home
+                              widgets:
+                                - label: {text: "Home", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                          - label: {x: 0, y: 0, width: 800, height: 46, text: "Scale", text_font: roboto_20, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+                    - label:
+                        x: 0
+                        y: 72
+                        width: 800
+                        text: "WEIGHT"
+                        text_font: roboto_16
+                        text_color: 0x18E6DF
+                        text_align: CENTER
+                        align: TOP_MID
+                    - label:
+                        id: lbl_weight
+                        x: 0
+                        y: 114
+                        width: 800
+                        text: ""
+                        text_font: roboto_40
+                        text_color: 0x18E6DF
+                        text_align: CENTER
+                        align: TOP_MID
+                    - label:
+                        id: lbl_weight_stable
+                        x: 0
+                        y: 201
+                        width: 800
+                        text: ""
+                        text_font: roboto_16
+                        text_color: 0x8888AA
+                        text_align: CENTER
+                        align: TOP_MID
+
+                    # ---- Action buttons — bottom row, same layout as NFC tab ----
+                    - button:
+                        id: btn_tare
+                        x: 13
+                        y: 282
+                        width: 380
+                        height: 75
+                        styles: sty_accent_btn
+                        on_click:
+                          then:
+                            - lambda: bambuddy->request_tare();
+                        widgets:
+                          - label:
+                              text: "TARE"
+                              text_font: roboto_16
+                              text_color: 0x7BB4FF
+                              align: CENTER
+                    - button:
+                        id: btn_calibrate
+                        x: 407
+                        y: 282
+                        width: 380
+                        height: 75
+                        styles: sty_accent_btn
+                        on_click:
+                          then:
+                            - lambda: |-
+                                char buf[10];
+                                snprintf(buf, sizeof(buf), "%.0f g", id(cal_ref_weight));
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                                lv_obj_clear_flag(id(cal_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label:
+                              text: "CALIBRATE"
+                              text_font: roboto_16
+                              text_color: 0x7BB4FF
+                              align: CENTER
+
+              - !include lvgl/tab_nfc.yaml
+
+              - !include lvgl/tab_barcode.yaml
+
+              - !include lvgl/tab_ams.yaml
+
+              # ================ CONTENT: SETTINGS (printer selection) ==========
+              - obj:
+                  id: content_cfg
+                  x: 0
+                  y: 45
+                  width: 800
+                  height: 375
+                  styles: sty_panel
+                  scrollbar_mode: "OFF"
+                  hidden: true
+                  widgets:
+                    # ---- Fixed Back/Home title row ----
+                    - obj:
+                        id: cfg_titlebar
+                        x: 0
+                        y: 0
+                        width: 800
+                        height: 46
+                        styles: sty_bar
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - button:
+                              x: 12
+                              y: 7
+                              width: 92
+                              height: 32
+                              bg_color: 0x111827
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 6
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - script.execute: nav_back
+                              widgets:
+                                - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+                          - button:
+                              x: 114
+                              y: 7
+                              width: 92
+                              height: 32
+                              bg_color: 0x111827
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 6
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - script.execute: nav_home
+                              widgets:
+                                - label: {text: "Home", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                          - label:
+                              x: 0
+                              width: 800
+                              text: "Settings"
+                              text_font: roboto_20
+                              text_color: 0x18E6DF
+                              text_align: CENTER
+                              align: CENTER
+                    # Thin separator below the header
+                    - obj:
+                        x: 0
+                        y: 46
+                        width: 800
+                        height: 2
+                        bg_color: 0x454572
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 0
+                        scrollbar_mode: "OFF"
+
+                    # ==== Settings rows (top-aligned): Printer | NFC in sleep | Sound ====
+                    # ---- Row: selected printer (tap the value to open the picker popup) ----
+                    - obj:
+                        x: 0
+                        y: 54
+                        width: 800
+                        height: 57
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - label:
+                              x: 23
+                              width: 183
+                              text: "Printer"
+                              text_font: roboto_16
+                              text_color: 0xAAAAAA
+                              align: LEFT_MID
+                          - button:
+                              id: btn_printer_pick
+                              x: 250
+                              y: 5
+                              width: 533
+                              height: 48
+                              styles: sty_card
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - lambda: 'lv_obj_clear_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);'
+                              widgets:
+                                - label: {id: lbl_printer_sel_icon, x: 13, width: 40, text: "\U000F0765", text_font: mdi_24, text_color: 0x666688, align: LEFT_MID}
+                                - label: {id: lbl_printer_sel, x: 63, width: 380, text: "—", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                                - label: {x: 493, width: 40, text: "\U000F0142", text_font: mdi_24, text_color: 0x18E6DF, align: LEFT_MID}
+
+                    # ---- Row: Sound on/off (Off | On segments) ----
+                    - obj:
+                        x: 0
+                        y: 117
+                        width: 800
+                        height: 57
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - label:
+                              x: 23
+                              width: 217
+                              text: "Sound"
+                              text_font: roboto_16
+                              text_color: 0xAAAAAA
+                              align: LEFT_MID
+                          - button:
+                              id: btn_sound_off
+                              x: 250
+                              y: 5
+                              width: 263
+                              height: 48
+                              styles: sty_card
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - lambda: 'id(sound_enabled) = 0;'
+                                  - script.execute: update_sound_btn
+                              widgets:
+                                - label: {id: lbl_sound_off, text: "Off", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+                          - button:
+                              id: btn_sound_on
+                              x: 520
+                              y: 5
+                              width: 263
+                              height: 48
+                              styles: sty_card
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - lambda: 'id(sound_enabled) = 1;'
+                                  - script.execute: update_sound_btn
+                              widgets:
+                                - label: {id: lbl_sound_on, text: "On", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+
+                    # ---- Row: Backlight brightness (slider 25–100%, 5% steps) ----
+                    - obj:
+                        x: 0
+                        y: 180
+                        width: 800
+                        height: 57
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - label:
+                              x: 23
+                              width: 217
+                              text: "Brightness"
+                              text_font: roboto_16
+                              text_color: 0xAAAAAA
+                              align: LEFT_MID
+                          - slider:
+                              id: sl_brightness
+                              x: 247
+                              y: 17
+                              width: 457
+                              height: 24
+                              min_value: 25
+                              max_value: 100
+                              value: 100
+                              on_value:
+                                then:
+                                  - lambda: |-
+                                      // Snap to 5% steps and store. Inline to avoid circular
+                                      // trigger: update_backlight_brightness → lv_slider_set_value
+                                      // → on_value → update_backlight_brightness → ...
+                                      int snapped = ((x + 2) / 5) * 5;
+                                      if (snapped < 25) snapped = 25;
+                                      if (snapped > 100) snapped = 100;
+                                      id(backlight_brightness_pct) = snapped;
+                                      id(display_backlight).turn_on()
+                                        .set_brightness(snapped / 100.0f)
+                                        .set_transition_length(50).perform();
+                                      char buf[6];
+                                      snprintf(buf, sizeof(buf), "%d%%", snapped);
+                                      lv_label_set_text(id(lbl_brightness_val), buf);
+                          - label:
+                              id: lbl_brightness_val
+                              x: 717
+                              width: 77
+                              text: "100%"
+                              text_font: roboto_16
+                              text_color: 0xDDDDEE
+                              text_align: RIGHT
+                              align: LEFT_MID
+
+                    # ---- Row: Sleep settings (opens sleep subpage) ----
+                    - obj:
+                        x: 0
+                        y: 243
+                        width: 800
+                        height: 57
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - label:
+                              x: 23
+                              width: 183
+                              text: "Sleep"
+                              text_font: roboto_16
+                              text_color: 0xAAAAAA
+                              align: LEFT_MID
+                          - button:
+                              id: btn_sleep_page
+                              x: 250
+                              y: 5
+                              width: 533
+                              height: 48
+                              styles: sty_card
+                              scrollbar_mode: "OFF"
+                              on_click:
+                                then:
+                                  - lambda: 'lv_obj_clear_flag(id(content_sleep), LV_OBJ_FLAG_HIDDEN);'
+                              widgets:
+                                - label: {x: 13, width: 467, text: "Sleep settings", text_font: roboto_16, text_color: 0xDDDDEE, align: LEFT_MID}
+                                - label: {x: 493, width: 40, text: "\U000F0142", text_font: mdi_24, text_color: 0x18E6DF, align: LEFT_MID}
+
+                    # ---- Row: Update / SpoolmanDB ----
+                    - obj:
+                        x: 0
+                        y: 306
+                        width: 800
+                        height: 57
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - label:
+                              x: 23
+                              width: 183
+                              text: "Update"
+                              text_font: roboto_16
+                              text_color: 0x9A9CB5
+                              align: LEFT_MID
+                          - button:
+                              x: 250
+                              y: 5
+                              width: 345
+                              height: 48
+                              styles: sty_card
+                              on_click:
+                                then:
+                                  - lambda: 'lv_obj_clear_flag(id(content_update), LV_OBJ_FLAG_HIDDEN);'
+                              widgets:
+                                - label: {x: 12, width: 300, text: "SpoolmanDB  ·  DB○", text_font: roboto_16, text_color: 0xF3F5FA, align: LEFT_MID}
+                          - button:
+                              x: 607
+                              y: 5
+                              width: 176
+                              height: 48
+                              bg_color: 0x10131D
+                              border_color: 0x18E6DF
+                              border_width: 1
+                              radius: 6
+                              on_click:
+                                then:
+                                  - script.execute: db_update_demo
+                              widgets:
+                                - label: {text: "Update Now", text_font: roboto_12, text_color: 0x18E6DF, align: CENTER}
+
+                    # ---- App version (bottom-right; text set in apply_tab from
+                    #      esphome.project.version via ESPHOME_PROJECT_VERSION) ----
+                    - label:
+                        id: lbl_version
+                        text: ""
+                        text_font: roboto_12
+                        text_color: 0x9A9CB5
+                        x: 710
+                        y: 15
+                        width: 80
+                        text_align: RIGHT
+                        align: TOP_LEFT
+
+                    # ---- Update / SpoolmanDB subpage ----
+                    - obj:
+                        id: content_update
+                        x: 0
+                        y: 0
+                        width: 800
+                        height: 375
+                        bg_color: 0x080A12
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        widgets:
+                          - obj:
+                              x: 0
+                              y: 0
+                              width: 800
+                              height: 46
+                              bg_color: 0x05070D
+                              bg_opa: COVER
+                              border_width: 0
+                              widgets:
+                                - button:
+                                    x: 12
+                                    y: 7
+                                    width: 92
+                                    height: 32
+                                    bg_color: 0x111827
+                                    border_color: 0x252A3A
+                                    border_width: 1
+                                    radius: 6
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - script.execute: nav_back
+                                    widgets:
+                                      - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+                                - button:
+                                    x: 114
+                                    y: 7
+                                    width: 92
+                                    height: 32
+                                    bg_color: 0x111827
+                                    border_color: 0x252A3A
+                                    border_width: 1
+                                    radius: 6
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - script.execute: nav_home
+                                    widgets:
+                                      - label: {text: "Home", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                                - label: {x: 0, width: 800, text: "Update", text_font: roboto_20, text_color: 0x18E6DF, text_align: CENTER, align: CENTER}
+                          - label: {x: 30, y: 72, width: 250, text: "SpoolmanDB", text_font: roboto_20, text_color: 0xF3F5FA, align: TOP_LEFT}
+                          - label: {x: 30, y: 111, width: 310, text: "Catalog status: DB○", text_font: roboto_16, text_color: 0x9A9CB5, align: TOP_LEFT}
+                          - button:
+                              x: 510
+                              y: 72
+                              width: 250
+                              height: 60
+                              bg_color: 0x10131D
+                              border_color: 0x18E6DF
+                              border_width: 1
+                              radius: 7
+                              on_click:
+                                then:
+                                  - script.execute: db_update_demo
+                              widgets:
+                                - label: {text: "Update Now", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                          - label: {x: 30, y: 168, width: 200, text: "Auto Update", text_font: roboto_16, text_color: 0x9A9CB5, align: TOP_LEFT}
+                          - button:
+                              x: 250
+                              y: 153
+                              width: 210
+                              height: 52
+                              bg_color: 0x10131D
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 6
+                              on_click:
+                                then:
+                                  - lambda: 'id(db_auto_update)=!id(db_auto_update);'
+                              widgets:
+                                - label: {text: "Enabled", text_font: roboto_16, text_color: 0x55D66B, align: CENTER}
+                          - obj:
+                              x: 30
+                              y: 226
+                              width: 730
+                              height: 72
+                              bg_color: 0x10131D
+                              border_color: 0x252A3A
+                              border_width: 1
+                              radius: 7
+                              widgets:
+                                - label:
+                                    id: lbl_db_update_status
+                                    x: 14
+                                    y: 10
+                                    width: 700
+                                    height: 48
+                                    text: "DB backend wiring is the next stage"
+                                    text_font: roboto_12
+                                    text_color: 0x9A9CB5
+                                    long_mode: WRAP
+                                    align: TOP_LEFT
+                          - button:
+                              id: btn_reboot
+                              x: 590
+                              y: 310
+                              width: 170
+                              height: 48
+                              bg_color: 0x3A1414
+                              border_width: 0
+                              radius: 6
+                              on_click:
+                                then:
+                                  - lambda: |-
+                                      id(confirm_action) = 3;
+                                      lv_label_set_text(id(confirm_msg), "Reboot the console now?");
+                                      lv_label_set_text(id(confirm_ok_lbl), "Reboot");
+                                      lv_obj_clear_flag(id(confirm_modal), LV_OBJ_FLAG_HIDDEN);
+                              widgets:
+                                - label: {text: "Reboot", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+
+                    # ---- Sleep settings subpage (overlays full content_cfg area) ----
+                    - obj:
+                        id: content_sleep
+                        x: 0
+                        y: 0
+                        width: 800
+                        height: 375
+                        bg_color: 0x080A12
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        widgets:
+                          # Header with back button
+                          - obj:
+                              x: 0
+                              y: 0
+                              width: 800
+                              height: 46
+                              styles: sty_bar
+                              scrollbar_mode: "OFF"
+                              widgets:
+                                - button:
+                                    x: 12
+                                    y: 7
+                                    width: 92
+                                    height: 32
+                                    bg_color: 0x111827
+                                    border_color: 0x252A3A
+                                    border_width: 1
+                                    radius: 6
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - script.execute: nav_back
+                                    widgets:
+                                      - label: {text: "Back", text_font: roboto_16, text_color: 0xFF6B6B, align: CENTER}
+                                - button:
+                                    x: 114
+                                    y: 7
+                                    width: 92
+                                    height: 32
+                                    bg_color: 0x111827
+                                    border_color: 0x252A3A
+                                    border_width: 1
+                                    radius: 6
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - script.execute: nav_home
+                                    widgets:
+                                      - label: {text: "Home", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+                                - label:
+                                    x: 0
+                                    width: 800
+                                    text: "Sleep Settings"
+                                    text_font: roboto_20
+                                    text_color: 0x18E6DF
+                                    text_align: CENTER
+                                    align: CENTER
+                          # Separator
+                          - obj:
+                              x: 0
+                              y: 46
+                              width: 800
+                              height: 2
+                              bg_color: 0x454572
+                              bg_opa: COVER
+                              border_width: 0
+                              radius: 0
+                              scrollbar_mode: "OFF"
+
+                          # ---- Row: Inactivity timeout (-/value/+) ----
+                          - obj:
+                              x: 0
+                              y: 54
+                              width: 800
+                              height: 57
+                              bg_opa: TRANSP
+                              border_width: 0
+                              pad_all: 0
+                              scrollbar_mode: "OFF"
+                              widgets:
+                                - label:
+                                    x: 23
+                                    width: 217
+                                    text: "Inactivity"
+                                    text_font: roboto_16
+                                    text_color: 0xAAAAAA
+                                    align: LEFT_MID
+                                - button:
+                                    id: btn_sleep_dec
+                                    x: 247
+                                    y: 5
+                                    width: 73
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: |-
+                                            int m = id(sleep_timeout_min);
+                                            if (m == 0) return;
+                                            else if (m <= 5) m = 0;
+                                            else m -= 5;
+                                            id(sleep_timeout_min) = m;
+                                            id(update_sleep_timeout_lbl).execute();
+                                    widgets:
+                                      - label: {text: "-", text_font: roboto_20, text_color: 0xDDDDEE, align: CENTER}
+                                - label:
+                                    id: lbl_sleep_timeout
+                                    x: 327
+                                    width: 317
+                                    text: "10 min"
+                                    text_font: roboto_16
+                                    text_color: 0xDDDDEE
+                                    text_align: CENTER
+                                    align: LEFT_MID
+                                - button:
+                                    id: btn_sleep_inc
+                                    x: 650
+                                    y: 5
+                                    width: 73
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: |-
+                                            int m = id(sleep_timeout_min);
+                                            if (m >= 60) return;
+                                            else if (m == 0) m = 5;
+                                            else m += 5;
+                                            id(sleep_timeout_min) = m;
+                                            id(update_sleep_timeout_lbl).execute();
+                                    widgets:
+                                      - label: {text: "+", text_font: roboto_20, text_color: 0xDDDDEE, align: CENTER}
+
+                          # ---- Row: NFC in sleep (Off | Slow | On) ----
+                          - obj:
+                              x: 0
+                              y: 126
+                              width: 800
+                              height: 57
+                              bg_opa: TRANSP
+                              border_width: 0
+                              pad_all: 0
+                              scrollbar_mode: "OFF"
+                              widgets:
+                                - label:
+                                    x: 23
+                                    width: 217
+                                    text: "NFC in sleep"
+                                    text_font: roboto_16
+                                    text_color: 0xAAAAAA
+                                    align: LEFT_MID
+                                - button:
+                                    id: btn_nfc_off
+                                    x: 250
+                                    y: 5
+                                    width: 173
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: 'id(nfc_sleep_mode) = 0;'
+                                        - script.execute: update_nfc_sleep_btn
+                                    widgets:
+                                      - label: {id: lbl_nfc_off, text: "Off", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+                                - button:
+                                    id: btn_nfc_slow
+                                    x: 430
+                                    y: 5
+                                    width: 173
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: 'id(nfc_sleep_mode) = 1;'
+                                        - script.execute: update_nfc_sleep_btn
+                                    widgets:
+                                      - label: {id: lbl_nfc_slow, text: "Slow", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+                                - button:
+                                    id: btn_nfc_on
+                                    x: 610
+                                    y: 5
+                                    width: 173
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: 'id(nfc_sleep_mode) = 2;'
+                                        - script.execute: update_nfc_sleep_btn
+                                    widgets:
+                                      - label: {id: lbl_nfc_on, text: "On", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+
+                          # ---- Row: WiFi in sleep (Power Save | Off) ----
+                          - obj:
+                              x: 0
+                              y: 198
+                              width: 800
+                              height: 57
+                              bg_opa: TRANSP
+                              border_width: 0
+                              pad_all: 0
+                              scrollbar_mode: "OFF"
+                              widgets:
+                                - label:
+                                    x: 23
+                                    width: 217
+                                    text: "WiFi in sleep"
+                                    text_font: roboto_16
+                                    text_color: 0xAAAAAA
+                                    align: LEFT_MID
+                                - button:
+                                    id: btn_wifi_ps
+                                    x: 250
+                                    y: 5
+                                    width: 263
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: 'id(wifi_sleep_mode) = 0;'
+                                        - script.execute: update_wifi_sleep_btn
+                                    widgets:
+                                      - label: {id: lbl_wifi_ps, text: "Power Save", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+                                - button:
+                                    id: btn_wifi_off
+                                    x: 520
+                                    y: 5
+                                    width: 263
+                                    height: 48
+                                    styles: sty_card
+                                    scrollbar_mode: "OFF"
+                                    on_click:
+                                      then:
+                                        - lambda: 'id(wifi_sleep_mode) = 1;'
+                                        - script.execute: update_wifi_sleep_btn
+                                    widgets:
+                                      - label: {id: lbl_wifi_off, text: "Off", text_font: roboto_16, text_color: 0x8888AA, align: CENTER}
+
+              # ---------------- BOTTOM NAV: simulator-style dock ----------------
+              - obj:
+                  x: 0
+                  y: 420
+                  width: 800
+                  height: 60
+                  styles: sty_bar
+                  scrollbar_mode: "OFF"
+                  widgets:
+                    # AMS (internal 0)
+                    - button:
+                        x: 0
+                        y: 0
+                        width: 160
+                        height: 60
+                        styles: sty_navbtn
+                        on_click:
+                          then:
+                            - lambda: id(active_tab)=0;
+                            - script.execute: apply_tab
+                        widgets:
+                          - image: {id: tic_ams, src: img_ams_tab, x: 63, y: 4, image_recolor: 0x18E6DF, image_recolor_opa: COVER}
+                          - label: {id: navtxt_ams, x: 0, y: 35, width: 160, text: "AMS", text_font: roboto_12, text_color: 0x18E6DF, text_align: CENTER, align: TOP_LEFT}
+                          - obj: {id: navline_ams, x: 35, y: 57, width: 90, height: 3, bg_color: 0x18E6DF, bg_opa: COVER, border_width: 0}
+                    # NFC (internal 1)
+                    - button:
+                        x: 160
+                        y: 0
+                        width: 160
+                        height: 60
+                        styles: sty_navbtn
+                        on_click:
+                          then:
+                            - lambda: id(active_tab)=1;
+                            - script.execute: apply_tab
+                        widgets:
+                          - image: {id: tic_nfc, src: img_icon_nfc, x: 68, y: 5, image_recolor: 0x9A9CB5, image_recolor_opa: COVER}
+                          - label: {id: navtxt_nfc, x: 0, y: 35, width: 160, text: "NFC", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - obj: {id: navline_nfc, x: 35, y: 57, width: 90, height: 3, bg_color: 0x18E6DF, bg_opa: TRANSP, border_width: 0}
+                    # Barcode (internal 4)
+                    - button:
+                        x: 320
+                        y: 0
+                        width: 160
+                        height: 60
+                        styles: sty_navbtn
+                        on_click:
+                          then:
+                            - lambda: id(active_tab)=4;
+                            - script.execute: apply_tab
+                            - script.execute: barcode_render
+                        widgets:
+                          - image: {id: tic_barcode, src: img_icon_barcode, x: 68, y: 5, image_recolor: 0x9A9CB5, image_recolor_opa: COVER}
+                          - label: {id: navtxt_barcode, x: 0, y: 35, width: 160, text: "Barcode", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - obj: {id: navline_barcode, x: 35, y: 57, width: 90, height: 3, bg_color: 0x18E6DF, bg_opa: TRANSP, border_width: 0}
+                    # Scale (internal 2)
+                    - button:
+                        x: 480
+                        y: 0
+                        width: 160
+                        height: 60
+                        styles: sty_navbtn
+                        on_click:
+                          then:
+                            - lambda: id(active_tab)=2;
+                            - script.execute: apply_tab
+                        widgets:
+                          - label: {id: tic_scale, x: 0, y: 3, width: 160, text: "\U000F0472", text_font: mdi_24, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - label: {id: navtxt_scale, x: 0, y: 35, width: 160, text: "Scale", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - obj: {id: navline_scale, x: 35, y: 57, width: 90, height: 3, bg_color: 0x18E6DF, bg_opa: TRANSP, border_width: 0}
+                    # Settings (internal 3)
+                    - button:
+                        x: 640
+                        y: 0
+                        width: 160
+                        height: 60
+                        styles: sty_navbtn
+                        on_click:
+                          then:
+                            - lambda: id(active_tab)=3;
+                            - script.execute: apply_tab
+                        widgets:
+                          - label: {id: tic_cfg, x: 0, y: 1, width: 160, text: "\U000F0493", text_font: mdi_30, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - label: {id: navtxt_cfg, x: 0, y: 35, width: 160, text: "Settings", text_font: roboto_12, text_color: 0x9A9CB5, text_align: CENTER, align: TOP_LEFT}
+                          - obj: {id: navline_cfg, x: 35, y: 57, width: 90, height: 3, bg_color: 0x18E6DF, bg_opa: TRANSP, border_width: 0}
+
+              # ================ SPOOL DETAIL MODAL ================
+              # Single card — no full-screen dim backdrop.  Removing the backdrop
+              # keeps the dirty area to the card bounds only (~3 DMA stripes at
+              # 25 % buffer vs 4 for a full-screen overlay), which eliminates the
+              # visible top-to-bottom repaint sweep.  The card is visually
+              # distinguished by a bright border + drop shadow instead.
+              - obj:
+                  id: ams_modal_card
+                  x: 33
+                  y: 69
+                  width: 733
+                  height: 339
+                  bg_color: 0x1A1A2C
+                  bg_opa: COVER
+                  border_color: 0x9A9CB5
+                  border_width: 2
+                  border_opa: COVER
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  shadow_width: 16
+                  shadow_offset_x: 0
+                  shadow_offset_y: 6
+                  shadow_spread: 2
+                  shadow_color: 0x000000
+                  shadow_opa: COVER
+                  hidden: true
+                  widgets:
+                    # ---- Spool icon (80×80) — left column ----
+                    - obj:
+                        x: 20
+                        y: 18
+                        width: 133
+                        height: 120
+                        bg_opa: TRANSP
+                        border_width: 0
+                        pad_all: 0
+                        scrollbar_mode: "OFF"
+                        widgets:
+                          - image: {id: modal_spool_fill,  src: img_spool_fill_lg,  align: CENTER, image_recolor: 0x6666AA, image_recolor_opa: COVER}
+                          - obj: {id: modal_spool_hub, align: CENTER, width: 50, height: 45, radius: 15, bg_color: 0x1A1A2C, bg_opa: COVER, border_width: 1, border_color: 0x555577, pad_all: 0, scrollbar_mode: "OFF"}
+                          - image: {id: modal_spool_shine, src: img_spool_shine_lg, align: CENTER}
+                    # Spool ID — below icon in left column (hidden when no inventory ID)
+                    - label: {id: modal_spoolid, x: 20, y: 144, width: 133, height: 21, text: "", text_font: roboto_12, text_color: 0xBBBBCC, text_align: CENTER, align: TOP_LEFT, hidden: true}
+                    # ---- Right column text layout (x=104) ----
+                    #  y: 18  [Brand ── 324 px ─────────────────────────────── ]
+                    #  y: 54  [Material type + subtype ── 324 px ──────────────]
+                    #  y: 105  [swatch][hex]               | [temp range        ]
+                    #  y: 138  (left col: icon ends y=92)  | [AMS name roboto_16]
+                    #  y: 165                                  [Slot X   roboto_12]
+                    #  y: 189  [weight cur roboto_16]         [weight tot right  ]
+                    #  y: 222  [═══════ weight bar 324 px ═══════════════════════]
+                    #  y: 258  ─── separator ──────────────────────────────────
+                    #  y: 270  [Clear Assignment  200px] [Close  200px]
+                    - label: {id: modal_brand,        x: 173, y: 18,  width: 540, height: 33, text: "", text_font: roboto_20, text_color: 0xBBBBCC, long_mode: DOT,  align: TOP_LEFT}
+                    - label: {id: modal_type,         x: 173, y: 54,  width: 540, height: 48, text: "", text_font: roboto_28, text_color: 0xFFFFFF, long_mode: DOT,  align: TOP_LEFT}
+                    # Col-A row 3 — colour
+                    - obj:   {id: modal_color_swatch,  x: 173, y: 105,  width: 87,  height: 30, bg_color: 0x555577, bg_opa: COVER, border_color: 0x8888AA, border_width: 1, radius: 3, scrollbar_mode: "OFF"}
+                    - label: {id: modal_colorhex,      x: 270, y: 110,  width: 273, height: 24, text: "", text_font: roboto_12, text_color: 0xBBBBCC,  long_mode: DOT, align: TOP_LEFT}
+                    # Col-B — temperature, AMS name (line 1) + slot number (line 2)
+                    - label: {id: modal_temps,         x: 453, y: 105,  width: 260, height: 30, text: "", text_font: roboto_16, text_color: 0xDDDDEE,  align: TOP_LEFT}
+                    - label: {id: modal_slotinfo,      x: 453, y: 138,  width: 260, height: 27, text: "", text_font: roboto_16, text_color: 0x18E6DF,  long_mode: DOT, align: TOP_LEFT}
+                    - label: {id: modal_slotnum,       x: 453, y: 165, width: 260, height: 21, text: "", text_font: roboto_12, text_color: 0x5566BB,  align: TOP_LEFT}
+                    # Weight row — current weight (left, larger) + total (right, muted)
+                    - label: {id: modal_weight_cur,    x: 173, y: 189, width: 267, height: 27, text: "", text_font: roboto_16, text_color: 0xDDDDEE,  align: TOP_LEFT, hidden: true}
+                    - label: {id: modal_weight_tot,    x: 447, y: 192, width: 267, height: 24, text: "", text_font: roboto_12, text_color: 0x8888AA,  text_align: RIGHT, align: TOP_LEFT, hidden: true}
+                    # Weight bar — full col-A+B width
+                    - bar:
+                        id: modal_weight_bar
+                        x: 173
+                        y: 222
+                        width: 540
+                        height: 30
+                        min_value: 0
+                        max_value: 100
+                        value: 0
+                        bg_color: 0x2A2A3C
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 5
+                        pad_all: 0
+                        hidden: true
+                        indicator:
+                          bg_color: 0x22C55E
+                          bg_opa: COVER
+                          radius: 5
+                    # ---- Separator ----
+                    - obj: {x: 20, y: 258, width: 693, height: 2, bg_color: 0x454572, bg_opa: COVER, border_width: 0, radius: 0, scrollbar_mode: "OFF"}
+                    # ---- Bottom button row: Clear (left) | Close (right) ----
+                    - button:
+                        id: modal_clear_btn
+                        x: 20
+                        y: 270
+                        width: 333
+                        height: 57
+                        bg_color: 0x3D0A0A
+                        border_color: 0xCC3333
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(confirm_action) = 2;
+                                lv_label_set_text(id(confirm_msg), "Clear this slot's spool assignment?");
+                                lv_label_set_text(id(confirm_ok_lbl), "Clear");
+                                lv_obj_clear_flag(id(confirm_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {text: "Clear Assignment", text_font: roboto_16, text_color: 0xFF8888, align: CENTER}
+                    - button:
+                        id: modal_close_btn
+                        x: 380
+                        y: 270
+                        width: 333
+                        height: 57
+                        bg_color: 0x1E2040
+                        border_color: 0x9A9CB5
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: "lv_obj_add_flag(id(ams_modal_card), LV_OBJ_FLAG_HIDDEN);"
+                        widgets:
+                          - label: {text: "Close", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+
+              # ================ PRINTER PICKER MODAL =========================
+              - obj:
+                  id: printer_modal
+                  x: 33
+                  y: 30
+                  width: 733
+                  height: 420
+                  bg_color: 0x1A1A2C
+                  bg_opa: COVER
+                  border_color: 0x9A9CB5
+                  border_width: 2
+                  border_opa: COVER
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  shadow_width: 16
+                  shadow_offset_x: 0
+                  shadow_offset_y: 6
+                  shadow_spread: 2
+                  shadow_color: 0x000000
+                  shadow_opa: COVER
+                  hidden: true
+                  widgets:
+                    - label:
+                        x: 27
+                        y: 18
+                        width: 680
+                        text: "Select Printer"
+                        text_font: roboto_20
+                        text_color: 0x7BB4FF
+                        align: TOP_LEFT
+                    - label:
+                        id: cfg_empty
+                        x: 0
+                        y: 180
+                        width: 733
+                        text: "No printers found"
+                        text_font: roboto_16
+                        text_color: 0x8888AA
+                        text_align: CENTER
+                        align: TOP_MID
+                    - button:
+                        id: cfg_p0
+                        x: 20
+                        y: 69
+                        width: 693
+                        height: 51
+                        styles: sty_card
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(selected_printer_idx) = 0;
+                                bambuddy->set_selected_printer(0);
+                                lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {id: cfg_p0_d, x: 13, y: 0, width: 43, text: "", text_font: mdi_24, text_color: 0x8888AA, align: LEFT_MID}
+                          - label: {id: cfg_p0_n, x: 63, y: 0, width: 617, text: "", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                    - button:
+                        id: cfg_p1
+                        x: 20
+                        y: 126
+                        width: 693
+                        height: 51
+                        styles: sty_card
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(selected_printer_idx) = 1;
+                                bambuddy->set_selected_printer(1);
+                                lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {id: cfg_p1_d, x: 13, y: 0, width: 43, text: "", text_font: mdi_24, text_color: 0x8888AA, align: LEFT_MID}
+                          - label: {id: cfg_p1_n, x: 63, y: 0, width: 617, text: "", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                    - button:
+                        id: cfg_p2
+                        x: 20
+                        y: 183
+                        width: 693
+                        height: 51
+                        styles: sty_card
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(selected_printer_idx) = 2;
+                                bambuddy->set_selected_printer(2);
+                                lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {id: cfg_p2_d, x: 13, y: 0, width: 43, text: "", text_font: mdi_24, text_color: 0x8888AA, align: LEFT_MID}
+                          - label: {id: cfg_p2_n, x: 63, y: 0, width: 617, text: "", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                    - button:
+                        id: cfg_p3
+                        x: 20
+                        y: 240
+                        width: 693
+                        height: 51
+                        styles: sty_card
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(selected_printer_idx) = 3;
+                                bambuddy->set_selected_printer(3);
+                                lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {id: cfg_p3_d, x: 13, y: 0, width: 43, text: "", text_font: mdi_24, text_color: 0x8888AA, align: LEFT_MID}
+                          - label: {id: cfg_p3_n, x: 63, y: 0, width: 617, text: "", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                    - button:
+                        id: cfg_p4
+                        x: 20
+                        y: 297
+                        width: 693
+                        height: 51
+                        styles: sty_card
+                        scrollbar_mode: "OFF"
+                        hidden: true
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(selected_printer_idx) = 4;
+                                bambuddy->set_selected_printer(4);
+                                lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {id: cfg_p4_d, x: 13, y: 0, width: 43, text: "", text_font: mdi_24, text_color: 0x8888AA, align: LEFT_MID}
+                          - label: {id: cfg_p4_n, x: 63, y: 0, width: 617, text: "", text_font: roboto_16, text_color: 0xDDDDEE, long_mode: DOT, align: LEFT_MID}
+                    - button:
+                        id: btn_printer_close
+                        x: 20
+                        y: 357
+                        width: 693
+                        height: 48
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: 'lv_obj_add_flag(id(printer_modal), LV_OBJ_FLAG_HIDDEN);'
+                        widgets:
+                          - label: {text: "Close", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+
+              # ================ CALIBRATION MODAL ============================
+              - obj:
+                  id: cal_modal
+                  x: 33
+                  y: 69
+                  width: 733
+                  height: 285
+                  bg_color: 0x1A1A2C
+                  bg_opa: COVER
+                  border_color: 0x9A9CB5
+                  border_width: 2
+                  border_opa: COVER
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  shadow_width: 16
+                  shadow_offset_x: 0
+                  shadow_offset_y: 6
+                  shadow_spread: 2
+                  shadow_color: 0x000000
+                  shadow_opa: COVER
+                  hidden: true
+                  widgets:
+                    - label:
+                        x: 27
+                        y: 18
+                        width: 707
+                        text: "Calibrate Scale"
+                        text_font: roboto_20
+                        text_color: 0x7BB4FF
+                        align: TOP_LEFT
+                    - label:
+                        x: 27
+                        y: 66
+                        width: 680
+                        text: "Place known weight on scale, then confirm."
+                        text_font: roboto_12
+                        text_color: 0xBBBBCC
+                        long_mode: WRAP
+                        align: TOP_LEFT
+                    # ---- Reference weight row: −100 −10 −1 [value] +1 +10 +100 ----
+                    # Modal inner area x: 20..x: 713 (416 px).  Center at x=220.
+                    # Value label x: 300..x: 433 (80 px).  3 buttons per side, 52 px each, 4 px gaps.
+                    - button:
+                        id: btn_cal_m100
+                        x: 20
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) - 100.0f;
+                                if (v < 1.0f) v = 1.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "-100", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_cal_m10
+                        x: 113
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) - 10.0f;
+                                if (v < 1.0f) v = 1.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "-10", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_cal_m1
+                        x: 207
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) - 1.0f;
+                                if (v < 1.0f) v = 1.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "-1", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - label:
+                        id: lbl_cal_weight
+                        x: 300
+                        y: 120
+                        width: 133
+                        height: 54
+                        text: "100 g"
+                        text_font: roboto_16
+                        text_color: 0x7BB4FF
+                        text_align: CENTER
+                        align: TOP_LEFT
+                    - button:
+                        id: btn_cal_p1
+                        x: 440
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) + 1.0f;
+                                if (v > 5000.0f) v = 5000.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "+1", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_cal_p10
+                        x: 533
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) + 10.0f;
+                                if (v > 5000.0f) v = 5000.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "+10", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_cal_p100
+                        x: 627
+                        y: 120
+                        width: 87
+                        height: 54
+                        bg_color: 0x252540
+                        border_color: 0x9A9CB5
+                        border_width: 1
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                float v = id(cal_ref_weight) + 100.0f;
+                                if (v > 5000.0f) v = 5000.0f;
+                                id(cal_ref_weight) = v;
+                                char buf[12]; snprintf(buf, sizeof(buf), "%.0f g", v);
+                                lv_label_set_text(id(lbl_cal_weight), buf);
+                        widgets:
+                          - label: {text: "+100", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    # ---- Separator ----
+                    - obj:
+                        x: 20
+                        y: 186
+                        width: 693
+                        height: 2
+                        bg_color: 0x454572
+                        bg_opa: COVER
+                        border_width: 0
+                        radius: 0
+                        scrollbar_mode: "OFF"
+                    # ---- Cancel / Confirm buttons ----
+                    - button:
+                        id: btn_cal_cancel
+                        x: 20
+                        y: 201
+                        width: 317
+                        height: 57
+                        bg_color: 0x1E2040
+                        border_color: 0x9A9CB5
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: "lv_obj_add_flag(id(cal_modal), LV_OBJ_FLAG_HIDDEN);"
+                        widgets:
+                          - label: {text: "Cancel", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_cal_confirm
+                        x: 363
+                        y: 201
+                        width: 350
+                        height: 57
+                        bg_color: 0x1E2040
+                        border_color: 0x18E6DF
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                lv_obj_add_flag(id(cal_modal), LV_OBJ_FLAG_HIDDEN);
+                                bambuddy->request_calibration(id(cal_ref_weight));
+                        widgets:
+                          - label: {text: "Calibrate", text_font: roboto_16, text_color: 0x18E6DF, align: CENTER}
+
+              # ================ CONFIRM MODAL ================================
+              # Reusable confirmation for destructive actions. confirm_action
+              # (global) selects what runs on confirm: 1=unlink tag, 2=clear
+              # assignment. Declared before the wake guard so it overlays the AMS
+              # detail modal (clear assignment is triggered from inside it).
+              - obj:
+                  id: confirm_modal
+                  x: 33
+                  y: 120
+                  width: 733
+                  height: 240
+                  bg_color: 0x1A1A2C
+                  bg_opa: COVER
+                  border_color: 0x9A9CB5
+                  border_width: 2
+                  border_opa: COVER
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  shadow_width: 16
+                  shadow_offset_x: 0
+                  shadow_offset_y: 6
+                  shadow_spread: 2
+                  shadow_color: 0x000000
+                  shadow_opa: COVER
+                  hidden: true
+                  widgets:
+                    - label:
+                        x: 27
+                        y: 24
+                        width: 680
+                        text: "Are you sure?"
+                        text_font: roboto_20
+                        text_color: 0x7BB4FF
+                        align: TOP_LEFT
+                    - label:
+                        id: confirm_msg
+                        x: 27
+                        y: 78
+                        width: 680
+                        height: 60
+                        text: ""
+                        text_font: roboto_16
+                        text_color: 0xDDDDEE
+                        long_mode: WRAP
+                        align: TOP_LEFT
+                    - button:
+                        id: confirm_cancel_btn
+                        x: 20
+                        y: 156
+                        width: 333
+                        height: 60
+                        bg_color: 0x1E2040
+                        border_color: 0x9A9CB5
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(confirm_action) = 0;
+                                lv_obj_add_flag(id(confirm_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {text: "Cancel", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: confirm_ok_btn
+                        x: 380
+                        y: 156
+                        width: 333
+                        height: 60
+                        bg_color: 0x3D0A0A
+                        border_color: 0xCC3333
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                int a = id(confirm_action);
+                                id(confirm_action) = 0;
+                                lv_obj_add_flag(id(confirm_modal), LV_OBJ_FLAG_HIDDEN);
+                                if (a == 1) {
+                                  bambuddy->unlink_current_tag();
+                                } else if (a == 2) {
+                                  bambuddy->clear_slot_assignment(id(modal_ams_id), id(modal_tray_slot));
+                                  lv_obj_add_flag(id(ams_modal_card), LV_OBJ_FLAG_HIDDEN);
+                                } else if (a == 3) {
+                                  id(restart_button).press();  // reboot the console
+                                }
+                        widgets:
+                          - label: {id: confirm_ok_lbl, text: "Confirm", text_font: roboto_16, text_color: 0xFF8888, align: CENTER}
+
+              # ================ ASSIGN-BY-ID MODAL ===========================
+              # Assign an inventory spool to an empty AMS slot by ID (no scan).
+              # modal_ams_id / modal_tray_slot hold the target slot.
+              - obj:
+                  id: assign_id_modal
+                  x: 33
+                  y: 96
+                  width: 733
+                  height: 258
+                  bg_color: 0x1A1A2C
+                  bg_opa: COVER
+                  border_color: 0x9A9CB5
+                  border_width: 2
+                  border_opa: COVER
+                  radius: 12
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  shadow_width: 16
+                  shadow_offset_x: 0
+                  shadow_offset_y: 6
+                  shadow_spread: 2
+                  shadow_color: 0x000000
+                  shadow_opa: COVER
+                  hidden: true
+                  widgets:
+                    - label:
+                        id: slot_assign_title
+                        x: 27
+                        y: 21
+                        width: 680
+                        text: "Assign Spool"
+                        text_font: roboto_20
+                        text_color: 0x7BB4FF
+                        long_mode: DOT
+                        align: TOP_LEFT
+                    # ---- ID chooser: -10 / - / ID:X / + / +10 ----
+                    - button:
+                        id: btn_slot_id_m10
+                        x: 20
+                        y: 84
+                        width: 100
+                        height: 60
+                        bg_color: 0x1E1E30
+                        border_color: 0x3A3A56
+                        border_width: 1
+                        radius: 4
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                int v=(int)id(slot_assign_id)-10; if(v<1)v=1; id(slot_assign_id)=v;
+                                char b[16]; snprintf(b,sizeof(b),"ID: %d",v); lv_label_set_text(id(lbl_slot_assign_id),b);
+                        widgets:
+                          - label: {text: "-10", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_slot_id_m1
+                        x: 130
+                        y: 84
+                        width: 80
+                        height: 60
+                        bg_color: 0x1E1E30
+                        border_color: 0x3A3A56
+                        border_width: 1
+                        radius: 4
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                if((int)id(slot_assign_id)>1) id(slot_assign_id)--;
+                                int v=(int)id(slot_assign_id);
+                                char b[16]; snprintf(b,sizeof(b),"ID: %d",v); lv_label_set_text(id(lbl_slot_assign_id),b);
+                        widgets:
+                          - label: {text: "-", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+                    - label:
+                        id: lbl_slot_assign_id
+                        x: 220
+                        y: 96
+                        width: 293
+                        text: "ID: 1"
+                        text_font: roboto_20
+                        text_color: 0xFFFFFF
+                        text_align: CENTER
+                        align: TOP_LEFT
+                    - button:
+                        id: btn_slot_id_p1
+                        x: 523
+                        y: 84
+                        width: 80
+                        height: 60
+                        bg_color: 0x1E1E30
+                        border_color: 0x3A3A56
+                        border_width: 1
+                        radius: 4
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                id(slot_assign_id)++;
+                                int v=(int)id(slot_assign_id);
+                                char b[16]; snprintf(b,sizeof(b),"ID: %d",v); lv_label_set_text(id(lbl_slot_assign_id),b);
+                        widgets:
+                          - label: {text: "+", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+                    - button:
+                        id: btn_slot_id_p10
+                        x: 613
+                        y: 84
+                        width: 100
+                        height: 60
+                        bg_color: 0x1E1E30
+                        border_color: 0x3A3A56
+                        border_width: 1
+                        radius: 4
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                int v=(int)id(slot_assign_id)+10; id(slot_assign_id)=v;
+                                char b[16]; snprintf(b,sizeof(b),"ID: %d",v); lv_label_set_text(id(lbl_slot_assign_id),b);
+                        widgets:
+                          - label: {text: "+10", text_font: roboto_12, text_color: 0xDDDDEE, align: CENTER}
+                    # ---- Assign | Cancel ----
+                    - button:
+                        id: btn_slot_assign_ok
+                        x: 20
+                        y: 174
+                        width: 333
+                        height: 60
+                        bg_color: 0x0D2B14
+                        border_color: 0x4CAF50
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: |-
+                                int sid=(int)id(slot_assign_id);
+                                if(sid>0) bambuddy->assign_spool_to_slot(sid, id(modal_ams_id), id(modal_tray_slot));
+                                lv_obj_add_flag(id(assign_id_modal), LV_OBJ_FLAG_HIDDEN);
+                        widgets:
+                          - label: {text: "Assign", text_font: roboto_16, text_color: 0x4CAF50, align: CENTER}
+                    - button:
+                        id: btn_slot_assign_cancel
+                        x: 380
+                        y: 174
+                        width: 333
+                        height: 60
+                        bg_color: 0x1E2040
+                        border_color: 0x9A9CB5
+                        border_width: 2
+                        radius: 6
+                        scrollbar_mode: "OFF"
+                        on_click:
+                          then:
+                            - lambda: "lv_obj_add_flag(id(assign_id_modal), LV_OBJ_FLAG_HIDDEN);"
+                        widgets:
+                          - label: {text: "Cancel", text_font: roboto_16, text_color: 0xDDDDEE, align: CENTER}
+
+              # ================ WAKE GUARD ====================================
+              # Full-screen transparent overlay that sits on top of all other
+              # widgets.  Shown by on_idle when the backlight dims; absorbs the
+              # first touch that wakes the screen so underlying buttons aren't
+              # accidentally triggered.  Hidden again by its own on_click, and
+              # also by the weight-placement wake path in spoolbuddy_app.yaml.
+              - obj:
+                  id: wake_guard
+                  x: 0
+                  y: 0
+                  width: 800
+                  height: 480
+                  bg_opa: TRANSP
+                  border_width: 0
+                  radius: 0
+                  pad_all: 0
+                  scrollbar_mode: "OFF"
+                  hidden: true
+                  on_click:
+                    then:
+                      - lambda: |-
+                          lv_obj_add_flag(id(wake_guard), LV_OBJ_FLAG_HIDDEN);
+                          // Waking from Dim (not deep sleep): restore user-configured brightness.
+                          // Deep-sleep wake is handled by the interval lambda (is_sleeping path).
+                          if (!id(is_sleeping)) {
+                            id(display_backlight).turn_on()
+                              .set_brightness(id(backlight_brightness_pct) / 100.0f)
+                              .set_transition_length(150).perform();
+                          }
+
+  on_idle:
+    timeout: 60s
+    then:
+      - light.turn_on:
+          id: display_backlight
+          brightness: 20%
+          transition_length: 2s
+      - lambda: "lv_obj_clear_flag(id(wake_guard), LV_OBJ_FLAG_HIDDEN);"

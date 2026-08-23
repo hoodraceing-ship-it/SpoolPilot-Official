@@ -26,7 +26,7 @@ esphome:
   friendly_name: SpoolPilot Scale
   project:
     name: spoolpilot.scale
-    version: "0.1.3"
+    version: "0.1.4"
   on_boot:
     priority: 600
     then:
@@ -158,6 +158,10 @@ globals:
     type: bool
     restore_value: no
     initial_value: 'false'
+  - id: scale_last_stable_push_ms  # repeat stable state so a busy HTTP queue cannot lose it
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
 
 # ============================================================================
 # HX711 scale sensor — weight in grams
@@ -258,9 +262,23 @@ interval:
   - interval: 250ms
     then:
       - lambda: |-
+          const uint32_t now = millis();
           if (!id(scale_is_stable) && id(scale_last_change_ms) != 0 &&
-              (millis() - id(scale_last_change_ms)) >= 3000) {
+              (now - id(scale_last_change_ms)) >= 3000) {
             id(scale_is_stable) = true;
+            id(scale_last_stable_push_ms) = 0;
+          }
+
+          // A scale weight job may already be queued at the instant stability
+          // changes. In that case on_scale_reading() intentionally coalesces
+          // the new job, which used to lose the only stable=true notification
+          // and left the console's Tare button disabled forever. Re-publish the
+          // settled value once per second while stable; the pending-job guard
+          // still prevents queue growth.
+          if (id(scale_is_stable) &&
+              (id(scale_last_stable_push_ms) == 0 ||
+               (now - id(scale_last_stable_push_ms)) >= 1000)) {
+            id(scale_last_stable_push_ms) = now;
             bambuddy->on_scale_reading(id(scale_last_grams), true, 0);
           }
 

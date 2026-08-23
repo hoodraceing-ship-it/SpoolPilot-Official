@@ -10,7 +10,10 @@ lvgl:
     - main_display
   touchscreens:
     - touch_screen
-  buffer_size: 100%
+  # Keep the LVGL draw buffer in fast internal RAM. ESPHome recommends 12%
+  # when PSRAM is available; a 100% 800x480 buffer is forced into slower PSRAM
+  # and can visibly tear when live weight updates redraw the screen.
+  buffer_size: 12%
   color_depth: 16
   bg_color: 0x080A12
   default_font: roboto_16

@@ -2,6 +2,15 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.4] - 2026-08-23
+
+### Fixed
+
+- Repeat the scale's settled-state notification so HTTP job coalescing cannot
+  permanently leave the console in `Settling - Tare disabled`.
+- Move the 800x480 LVGL draw buffer from slower PSRAM to a recommended 12%
+  internal-RAM buffer to reduce tearing during live screen updates.
+
 ## [0.1.3] - 2026-08-23
 
 ### Fixed

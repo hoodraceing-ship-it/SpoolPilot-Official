@@ -2,6 +2,15 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.2] - 2026-08-23
+
+### Fixed
+
+- Prevent repeated `esp_task_wdt_reset(): task not found` errors when ESP-IDF
+  has not registered the console HTTP worker with the task watchdog.
+- Keep normal ESP-IDF idle-task watchdog coverage active while treating the
+  custom HTTP-worker subscription as optional.
+
 ## [0.1.1] - 2026-08-23
 
 ### Changed

@@ -14,7 +14,6 @@
 #include "freertos/semphr.h"
 #include "esp_http_server.h"   // httpd_handle_t (scale server mode only)
 #include "esp_http_client.h"   // esp_http_client_method_t (http_request helper)
-#include "esp_wifi_types.h"    // wifi_ps_type_t (dynamic WiFi modem sleep in low-power mode)
 
 namespace esphome {
 namespace bambuddy_api {
@@ -686,7 +685,6 @@ class BambuddyAPIComponent : public Component {
   uint32_t sleep_timeout_ms_{600000};   // UI inactivity before deep sleep (0 = disabled)
   uint32_t low_power_factor_{6};         // heartbeat / poll interval multiplier while asleep
   std::atomic<bool> low_power_{false};   // true while running the reduced sleep cadence
-  wifi_ps_type_t awake_ps_mode_{WIFI_PS_NONE};  // awake WiFi PS mode, captured on sleep / restored on wake
 
   // NFC tag-scan retry after WiFi wake: when api_tag_scanned() fails because
   // the backend is not yet registered (WiFi reconnecting after sleep), we keep

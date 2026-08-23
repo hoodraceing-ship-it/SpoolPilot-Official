@@ -98,9 +98,9 @@ globals:
     type: int
     restore_value: yes
     initial_value: '1'
-  - id: wifi_sleep_mode      # WiFi during sleep: 0=PowerSave(MAX_MODEM, stays online) 1=Off(appears offline)
+  - id: wifi_sleep_mode      # Reserved: SpoolPilot v0.1.1+ always keeps WiFi online
     type: int
-    restore_value: yes
+    restore_value: no
     initial_value: '0'
   - id: sleep_timeout_min    # Inactivity before deep sleep: 0=Never, 5-60 in 5-min steps
     type: int
@@ -363,15 +363,18 @@ script:
   - id: update_wifi_sleep_btn
     then:
       - lambda: |-
-          bool off = (id(wifi_sleep_mode) == 1);
+          // Reliability mode is mandatory from v0.1.1 onward. Clear any value
+          // restored by older firmware and keep the deprecated Off button inert.
+          id(wifi_sleep_mode) = 0;
           lv_obj_set_style_bg_color(id(btn_wifi_ps),
-              !off ? lv_color_hex(0x0F3460) : lv_color_hex(0x1B1B2A), LV_PART_MAIN);
+              lv_color_hex(0x0F3460), LV_PART_MAIN);
           lv_obj_set_style_text_color(id(lbl_wifi_ps),
-              !off ? lv_color_hex(0x4ECDC4) : lv_color_hex(0x8888AA), LV_PART_MAIN);
+              lv_color_hex(0x4ECDC4), LV_PART_MAIN);
           lv_obj_set_style_bg_color(id(btn_wifi_off),
-              off ? lv_color_hex(0x0F3460) : lv_color_hex(0x1B1B2A), LV_PART_MAIN);
+              lv_color_hex(0x12121C), LV_PART_MAIN);
           lv_obj_set_style_text_color(id(lbl_wifi_off),
-              off ? lv_color_hex(0x4ECDC4) : lv_color_hex(0x8888AA), LV_PART_MAIN);
+              lv_color_hex(0x55556A), LV_PART_MAIN);
+          lv_obj_add_state(id(btn_wifi_off), LV_STATE_DISABLED);
 
   # Refresh the sleep timeout label and the summary row on the main settings page.
   - id: update_sleep_timeout_lbl
@@ -413,7 +416,7 @@ script:
           snprintf(buf, sizeof(buf), "%d%%", pct);
           lv_label_set_text(id(lbl_brightness_val), buf);
 
-  # Deferred WiFi-off + PM configure on sleep entry.
+  # Deferred sleep guard retained for compatibility with existing UI IDs.
   # Called 300 ms after the sleep state machine sets is_sleeping=true and the
   # power_state "Sleep" publish has had time to flush to HA over TCP.
   # Checks is_sleeping so a touch within the 300 ms window cancels cleanly.
@@ -423,10 +426,9 @@ script:
       - delay: 300ms
       - lambda: |-
           if (!id(is_sleeping)) return;
-          if (id(wifi_sleep_mode) == 1) {
-            wifi::global_wifi_component->disable();
-            bambuddy->configure_pm(true);
-          }
+          // Keep CPU and WiFi fully active. Only the backlight sleeps.
+          id(wifi_sleep_mode) = 0;
+          bambuddy->configure_pm(false);
 
   - id: open_ams_modal
     mode: restart
@@ -725,12 +727,8 @@ interval:
                 sleeping = false;
                 // Cancel the deferred WiFi-off if the user woke within 300 ms.
                 id(sleep_wifi_off).stop();
-                if (id(wifi_sleep_mode) == 1) {
-                  // Restore full CPU speed before re-enabling WiFi so the stack
-                  // initialises at 240 MHz, then force an immediate data refresh.
-                  bambuddy->configure_pm(false);
-                  wifi::global_wifi_component->enable();
-                }
+                // WiFi never turns off in reliability mode.
+                bambuddy->configure_pm(false);
                 // set_low_power(false) resets the HTTP poll timers to trigger an
                 // immediate refresh once the connection is up.
                 bambuddy->set_low_power(false);

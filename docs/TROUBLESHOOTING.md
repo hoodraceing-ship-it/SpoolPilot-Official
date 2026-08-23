@@ -1,5 +1,20 @@
 # Troubleshooting
 
+## Wi-Fi disconnects or repeatedly appears offline
+
+SpoolPilot v0.1.1 keeps Wi-Fi at full power even when the screen is asleep and
+does not slow the BamBuddy heartbeat. It also performs a normal access-point
+scan instead of reusing a cached weak BSSID.
+
+For the most reliable router configuration, use a dedicated 2.4 GHz WPA2 SSID,
+20 MHz channel width, and a fixed non-overlapping channel (1, 6, or 11). Avoid
+placing the CrowPanel directly behind a printer frame, power supply, or other
+large metal object. Reserve the console and scale addresses in the router.
+
+Use ESPHome logs to check RSSI. Values around -67 dBm or better are preferred;
+below roughly -75 dBm, move the access point or console before changing more
+firmware settings.
+
 ## `esphome.exe` is blocked by Application Control
 
 Run ESPHome through Python:

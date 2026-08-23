@@ -26,7 +26,7 @@ esphome:
   friendly_name: SpoolPilot Scale
   project:
     name: spoolpilot.scale
-    version: "0.1.0"
+    version: "0.1.1"
   on_boot:
     priority: 600
     then:
@@ -57,7 +57,10 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   power_save_mode: none
-  fast_connect: true
+  reboot_timeout: 5min
+  # Allow a fresh scan on reconnect so mesh/multi-AP networks select the
+  # strongest access point instead of reusing a weak cached BSSID.
+  fast_connect: false
   output_power: 20.5dB
   ap:
     ssid: "SpoolPilot Scale Fallback"
@@ -217,7 +220,7 @@ sensor:
   - platform: wifi_signal
     name: "WiFi Signal"
     id: wifi_signal_sensor
-    update_interval: 60s
+    update_interval: 10s
 
   - platform: uptime
     name: "Uptime"

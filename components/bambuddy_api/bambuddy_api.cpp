@@ -753,25 +753,20 @@ void BambuddyAPIComponent::set_low_power(bool enable) {
   if (enable == low_power_.load()) return;
   low_power_ = enable;
   if (enable) {
-    // Drop WiFi to the most aggressive modem sleep (MAX_MODEM) while idle for
-    // maximum battery saving — restored to the awake mode on wake. We stay
-    // associated, so scale-pushed wakes still arrive (buffered to the next radio
-    // wake). The HA API connection may drop during sleep and reconnect on wake —
-    // harmless (api reboot_timeout is 0). Capture the awake mode first so wake
-    // restores exactly what was configured.
-    if (esp_wifi_get_ps(&awake_ps_mode_) != ESP_OK) awake_ps_mode_ = WIFI_PS_NONE;
-    esp_wifi_set_ps(WIFI_PS_MAX_MODEM);
-    // Also stretch the backend cadence by low_power_factor_ (http_task_loop) to
-    // cut backend traffic while idle.
-    ESP_LOGI(TAG, "Sleep: entering low-power mode (WiFi MAX_MODEM, heartbeat/poll x%u)",
+    // SpoolPilot is mains powered. Keep the radio fully awake while only the
+    // display sleeps; aggressive modem sleep caused missed scale pushes and
+    // intermittent ESPHome/BamBuddy disconnects on weak or busy 2.4 GHz links.
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    ESP_LOGI(TAG,
+             "Display sleep: WiFi remains full-power, heartbeat/poll x%u",
              low_power_factor_);
   } else {
-    // Restore the awake WiFi power-save mode, then force an immediate heartbeat +
-    // printer/AMS poll on the next task tick so the UI is fresh at once.
-    esp_wifi_set_ps(awake_ps_mode_);
+    // Reassert full-power WiFi and force an immediate data refresh on wake.
+    esp_wifi_set_ps(WIFI_PS_NONE);
     last_heartbeat_ms_ = 0;
     last_printer_poll_ms_ = 0;
-    ESP_LOGI(TAG, "Sleep: leaving low-power mode (WiFi PS restored), forcing immediate refresh");
+    ESP_LOGI(TAG,
+             "Display wake: WiFi full-power, forcing immediate refresh");
   }
 }
 

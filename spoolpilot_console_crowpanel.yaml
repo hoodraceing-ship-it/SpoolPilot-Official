@@ -28,7 +28,7 @@ esphome:
 
   project:
     name: spoolpilot.console
-    version: "0.1.0"
+    version: "0.1.1"
 
   on_boot:
 
@@ -140,6 +140,8 @@ logger:
 
 wifi:
 
+  id: wifi_comp
+
   ssid: !secret wifi_ssid
   password: !secret wifi_password
 
@@ -148,11 +150,11 @@ wifi:
     password: !secret fallback_hotspot_password
 
   power_save_mode: none
+  reboot_timeout: 5min
 
-  # CrowPanel reliability: reconnect quickly and use the ESP32-S3's maximum
-  # supported Wi-Fi transmit power. The panel is installed near printers and
-  # other metalwork, so link margin matters.
-  fast_connect: true
+  # Scan normally so installations with mesh nodes or multiple access points
+  # can select the strongest BSSID instead of sticking to a cached weak one.
+  fast_connect: false
   output_power: 20.5dB
 
   on_connect:
@@ -514,7 +516,9 @@ bambuddy_api:
 
   printer_poll_interval: 30
 
-  sleep_factor: 6
+  # The console is mains powered. Keep the backend heartbeat at full cadence
+  # while the display is asleep so BamBuddy never marks it disconnected.
+  sleep_factor: 1
 
   clock_24h: true
 

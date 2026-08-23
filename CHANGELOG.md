@@ -2,6 +2,20 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.1] - 2026-08-23
+
+### Changed
+
+- Wi-Fi remains fully awake when the console display sleeps.
+- BamBuddy heartbeat and printer polling keep their normal cadence during
+  display sleep.
+- Normal AP scanning replaces `fast_connect` so mesh and multi-AP networks can
+  select the strongest BSSID.
+- Console and scale restart after five continuous minutes without Wi-Fi, giving
+  the ESP32 radio a clean recovery from a stuck association.
+- The previous Wi-Fi-off sleep option is disabled in the console interface.
+- Scale RSSI diagnostics now update every 10 seconds.
+
 ## [0.1.0] - 2026-08-23
 
 ### Added

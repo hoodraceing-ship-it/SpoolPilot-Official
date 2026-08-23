@@ -839,6 +839,18 @@ void BambuddyAPIComponent::on_write_tag_result(const std::string &uid,
 // ---------------------------------------------------------------------------
 
 void BambuddyAPIComponent::request_tare() {
+  // Taring while the HX711 moving-average filter is still converging captures
+  // a temporary value. The filter then continues moving and makes an unloaded
+  // scale appear to drift immediately after tare. Only accept a settled value.
+  lock_state();
+  const bool tare_stable = display_state_.weight_stable;
+  unlock_state();
+  if (!tare_stable) {
+    set_status("Wait for scale to settle before tare");
+    ESP_LOGW(TAG, "Tare rejected: scale reading is still settling");
+    return;
+  }
+
   if (scale_mode_) {
     local_tare();
     return;

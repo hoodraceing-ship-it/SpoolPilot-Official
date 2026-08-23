@@ -206,8 +206,21 @@ void BambuddyAPIComponent::http_task_loop() {
   // trigger the TWDT if this task were registered.  The idle tasks always
   // feed their own TWDT slots because FreeRTOS yields to them while our task
   // blocks on the network — so not registering here is safe.
+  // ESPHome can start this worker before ESP-IDF has finished configuring the
+  // task watchdog. In that case esp_task_wdt_add() fails and an unconditional
+  // esp_task_wdt_reset() floods the serial log with "task not found". Remember
+  // whether this task was actually subscribed and only feed it when registration
+  // succeeded. ESP-IDF's normal idle-task watchdog coverage remains active.
+  bool http_task_wdt_registered = false;
   if (!scale_mode_) {
-    esp_task_wdt_add(NULL);  // NULL = current task
+    const esp_err_t wdt_result = esp_task_wdt_add(NULL);  // NULL = current task
+    http_task_wdt_registered = (wdt_result == ESP_OK);
+    if (!http_task_wdt_registered) {
+      ESP_LOGW(TAG,
+               "HTTP worker was not added to the task watchdog (error %s); "
+               "continuing with ESP-IDF idle-task watchdog coverage",
+               esp_err_to_name(wdt_result));
+    }
   }
   uint32_t last_stack_diag_ms = 0;
   for (;;) {
@@ -220,7 +233,7 @@ void BambuddyAPIComponent::http_task_loop() {
     // the loop running, not to how often we hit the backend — so interval/cadence
     // choices can't starve it. (esp_task_wdt_reset only valid for a subscribed
     // task, so guard on the same condition as the esp_task_wdt_add above.)
-    if (!scale_mode_) esp_task_wdt_reset();
+    if (http_task_wdt_registered) esp_task_wdt_reset();
 
     // Core-1 health diagnostic (every 5 min): stack high-water mark of this
     // task plus minimum-ever free internal heap.  Creeping stack exhaustion

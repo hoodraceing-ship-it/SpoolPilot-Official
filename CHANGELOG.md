@@ -2,6 +2,16 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.3] - 2026-08-23
+
+### Fixed
+
+- Reject tare commands while the HX711 reading is still settling.
+- Require three continuous seconds without a significant weight change before
+  declaring the scale stable.
+- Disable the Scale-tab Tare button and show a clear settling message until the
+  reading is safe to use as the zero point.
+
 ## [0.1.2] - 2026-08-23
 
 ### Fixed

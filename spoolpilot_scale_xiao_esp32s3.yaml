@@ -1,24 +1,23 @@
 ################################################################################
 # SpoolPilot Scale — ESPHome Configuration
-# Target: Seeed Studio XIAO ESP32-S3 (HX711 + PN532 NFC, no display)
+# Target: Seeed Studio XIAO ESP32-S3 (HX711-only diagnostic build)
 #
 # Architecture:
 #   • scale_mode: true  — this device does NOT connect to BamBuddy at all.
 #     It exposes a tiny HTTP server (port 80) for tare/calibrate commands:
 #       POST /tare     → apply tare, persist to NVS
 #       POST /calibrate → body: {"reference_weight_grams": N}
-#   • Weight readings and NFC events are PUSHED to the console (port 8080) instead
-#     of being polled.  The console relays them to BamBuddy under its own device_id.
-#   • write_tag / tare / calibrate commands are delivered in the /scale/heartbeat
+#   • Weight readings are PUSHED to the console (port 8080) instead of being
+#     polled.  The console relays them to BamBuddy under its own device_id.
+#   • Tare / calibrate commands are delivered in the /scale/heartbeat
 #     response; the scale performs them locally and pushes the result back.
 #   • Tare offset and calibration factor are stored in NVS (namespace "spoolbuddy")
 #     so they survive reboots with no server dependency.
 #
 # Hardware connections:
-#   Scale:  HX711 (DOUT=D9/GPIO8, CLK=D10/GPIO9)
-#   NFC:    PN532 via SPI
-#           SCK=D8/GPIO7, MISO=D7/GPIO44, MOSI=D6/GPIO43,
-#           CS=D3/GPIO4, IRQ=D1/GPIO2
+#   Scale:  HX711 (DOUT/DT=D7/GPIO44, CLK/SCK=D8/GPIO7)
+#   NFC:    Disabled while scale reliability is tested. Do not connect a PN532
+#           to D7 or D8 because those pins are dedicated to the HX711.
 ################################################################################
 
 esphome:
@@ -26,7 +25,7 @@ esphome:
   friendly_name: SpoolPilot Scale
   project:
     name: spoolpilot.scale
-    version: "0.1.7"
+    version: "0.1.8"
   on_boot:
     priority: 600
     then:
@@ -46,7 +45,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [bambuddy_api, bambuddy_nfc]
+    components: [bambuddy_api]
 
 logger:
   level: INFO
@@ -93,37 +92,10 @@ bambuddy_api:
   hostname: "SpoolPilot-Scale"
   scale_mode: true    # starts HTTP server for tare/cal; persists cal in NVS
   scale_report_interval: 100 # ms — weight push cadence to the console
-  # Push weight + NFC events to the console instead of waiting to be polled.
+  # Push weight events to the console instead of waiting to be polled.
   # Set this to the console's reserved LAN address. Patrick's current console
   # address is used here so the scale does not depend on unreliable mDNS.
   console_url: "http://192.168.1.168"
-
-# ============================================================================
-# SPI bus — PN532 NFC reader
-# ============================================================================
-spi:
-  - id: spi_bus
-    clk_pin: GPIO7       # XIAO D8
-    mosi_pin: GPIO43     # XIAO D6
-    miso_pin: GPIO44     # XIAO D7
-
-# ============================================================================
-# BambuddyNFC — PN532 NFC reader
-# Tag scan / remove events are pushed to the console (/scale/nfc/tag-scanned,
-# /scale/nfc/tag-removed).  The console relays them to BamBuddy.
-# ============================================================================
-bambuddy_nfc:
-  id: nfc_reader
-  api_id: bambuddy
-  spi_id: spi_bus
-  cs_pin: GPIO4          # XIAO D3
-  irq_pin:
-    number: GPIO2        # XIAO D1
-    mode: INPUT_PULLUP  # PN532 IRQ is open-drain; pull-up required
-  data_rate: 1MHz
-  spi_mode: 0
-  poll_interval: 300   # ms — used only in fallback polling mode; IRQ mode uses 10ms guard
-  miss_threshold: 3    # consecutive no-tag responses before declaring tag removed
 
 # ============================================================================
 # Buttons
@@ -146,7 +118,7 @@ button:
 # Stability-detector state (see the HX711 on_value lambda + 250 ms interval)
 # ============================================================================
 globals:
-  - id: scale_last_change_ms   # millis() of the last >=0.3 g change (0 = none yet)
+  - id: scale_last_change_ms   # millis() of the last >=1 g change (0 = none yet)
     type: uint32_t
     restore_value: no
     initial_value: '0'
@@ -170,11 +142,11 @@ sensor:
   - platform: hx711
     name: "Spool Weight"
     id: spool_weight
-    dout_pin: GPIO8      # XIAO D9
-    clk_pin: GPIO9       # XIAO D10
+    dout_pin: GPIO44     # XIAO D7 — HX711 DT/DOUT
+    clk_pin: GPIO7       # XIAO D8 — HX711 SCK/CLK
     gain: 128
     update_interval: 200ms   # 10 SPS = 100 ms/conv; 200 ms gives 100 ms margin
-                              # so scheduler jitter (WiFi TX, NFC) never races the ADC
+                              # so scheduler jitter (including WiFi TX) never races the ADC
     unit_of_measurement: "g"
     accuracy_decimals: 1
     filters:
@@ -249,10 +221,10 @@ light:
     restore_mode: ALWAYS_OFF
 
 interval:
-  # Stability detector.  The HX711 pipeline's delta(0.3) filter stops emitting
+# Stability detector.  The HX711 pipeline's delta(1.0) filter stops emitting
   # on_value once the reading is steady, so "stable" cannot be edge-detected
   # from the sensor stream — it must be timed.  When the last >=0.3 g change was
-  # >= 750 ms ago (≈2 missed 400 ms SMA emissions), declare the weight stable
+  # >= 3 seconds ago, declare the weight stable
   # and push it once: the value is frozen, so no on_value will do it for us.
   # Three seconds prevents tare/calibration while the median + moving-average
   # pipeline is still converging after boot or a physical disturbance.

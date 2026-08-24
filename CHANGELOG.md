@@ -2,6 +2,15 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.6] - 2026-08-23
+
+### Fixed
+
+- Add a SpoolPilot MIPI-RGB driver override based on ESPHome 2026.7.4.
+- Stop restarting the CrowPanel RGB DMA stream on every component loop.
+- Synchronize framebuffer writes to VSYNC to prevent live weight-label updates
+  from splitting old and new pixels across the same visible frame.
+
 ## [0.1.5] - 2026-08-23
 
 ### Fixed

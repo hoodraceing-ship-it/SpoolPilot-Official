@@ -26,7 +26,7 @@ esphome:
   friendly_name: SpoolPilot Scale
   project:
     name: spoolpilot.scale
-    version: "0.1.6"
+    version: "0.1.7"
   on_boot:
     priority: 600
     then:
@@ -178,17 +178,14 @@ sensor:
     unit_of_measurement: "g"
     accuracy_decimals: 1
     filters:
-      # 1. Median(5): reject spike outliers before they enter the averager.
-      #    First value arrives after 3 samples (300 ms); full window at 5 (500 ms).
+      # 1. Median(7): reject cable/HX711 spikes before averaging.
       - median:
-          window_size: 5
+          window_size: 7
           send_every: 1
-      # 2. SMA(10): smooth the clean stream over a ~2 s window; emit every 400 ms.
-      #    (window_size halved from 20 to 10 because update_interval doubled to
-      #    200 ms — keeps the same ~2 s smoothing window, emits every 2 samples.)
+      # 2. SMA(15): smooth over three seconds and emit at most every 600 ms.
       - sliding_window_moving_average:
-          window_size: 10
-          send_every: 2
+          window_size: 15
+          send_every: 3
       # 3. Load-cell polarity: ADC goes negative when weight is added.
       #    Negate so the rest of the pipeline always operates on positive values.
       #    If readings still go negative under load, remove this filter instead.
@@ -199,14 +196,14 @@ sensor:
       - calibrate_linear:
           - 0 -> 0
           - 1000000 -> 1000
-      # 5. Delta(0.3 g): suppress sub-0.3 g jitter so the displayed value is
-      #    rock-solid when the scale is loaded but undisturbed.
-      - delta: 0.3
+      # 5. Suppress sub-1 g motion. The UI displays whole grams, so smaller
+      #    changes only create false movement and unnecessary network redraws.
+      - delta: 1.0
     on_value:
       then:
         - lambda: |-
-            // A new emission means the filtered reading just moved by >=0.3 g —
-            // the delta(0.3) filter above blocks anything smaller — so the scale
+            // A new emission means the filtered reading just moved by >=1 g —
+            // the delta filter above blocks anything smaller — so the scale
             // is NOT settled.  We cannot detect "stable" here: once the value
             // holds steady the delta filter stops emitting, so settled == the
             // absence of on_value calls.  Record the change time and report

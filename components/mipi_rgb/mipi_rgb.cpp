@@ -166,14 +166,6 @@ void MipiRgb::common_setup_() {
   }
   config.pclk_gpio_num = static_cast<gpio_num_t>(this->pclk_pin_->get_pin());
   esp_err_t err = esp_lcd_new_rgb_panel(&config, &this->handle_);
-  if (err == ESP_OK) {
-    this->vsync_sem_ = xSemaphoreCreateBinary();
-    if (this->vsync_sem_ != nullptr) {
-      esp_lcd_rgb_panel_event_callbacks_t callbacks{};
-      callbacks.on_vsync = MipiRgb::on_vsync_;
-      err = esp_lcd_rgb_panel_register_event_callbacks(this->handle_, &callbacks, this);
-    }
-  }
   if (err == ESP_OK)
     err = esp_lcd_panel_reset(this->handle_);
   if (err == ESP_OK)
@@ -190,17 +182,6 @@ void MipiRgb::loop() {
   // component loop. Repeated restarts can split a frame exactly when LVGL
   // updates a live label. The panel runs continuously and is restarted only by
   // ESP-IDF when recovery is actually required.
-}
-
-bool IRAM_ATTR MipiRgb::on_vsync_(esp_lcd_panel_handle_t panel,
-                                  const esp_lcd_rgb_panel_event_data_t *edata,
-                                  void *user_ctx) {
-  auto *self = static_cast<MipiRgb *>(user_ctx);
-  if (self == nullptr || self->vsync_sem_ == nullptr)
-    return false;
-  BaseType_t high_task_wakeup = pdFALSE;
-  xSemaphoreGiveFromISR(self->vsync_sem_, &high_task_wakeup);
-  return high_task_wakeup == pdTRUE;
 }
 
 void MipiRgb::update() {
@@ -250,15 +231,6 @@ void MipiRgb::draw_pixels_at(int x_start, int y_start, int w, int h, const uint8
 void MipiRgb::write_to_display_(int x_start, int y_start, int w, int h, const uint8_t *ptr, int x_offset, int y_offset,
                                 int x_pad) {
   esp_err_t err = ESP_OK;
-
-  // Discard an old edge and wait for the start of the next frame before
-  // modifying the single PSRAM framebuffer. Small LVGL dirty rectangles (such
-  // as the live weight value) are then copied before the scan reaches them,
-  // preventing the old and new number from appearing in the same frame.
-  if (this->vsync_sem_ != nullptr) {
-    while (xSemaphoreTake(this->vsync_sem_, 0) == pdTRUE) {}
-    xSemaphoreTake(this->vsync_sem_, pdMS_TO_TICKS(50));
-  }
 
   auto stride = (x_offset + w + x_pad) * 2;
   ptr += y_offset * stride + x_offset * 2;  // skip to the first pixel

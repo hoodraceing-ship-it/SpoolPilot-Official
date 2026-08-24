@@ -2,6 +2,16 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.7] - 2026-08-23
+
+### Fixed
+
+- Update the scale labels only when their visible value or state changes.
+- Reduce the live weight redraw from the full 800-pixel width to a compact area.
+- Remove the per-flush VSYNC wait that could expose intermediate LVGL chunks.
+- Strengthen the HX711 median and moving-average filters and suppress motion
+  below one gram.
+
 ## [0.1.6] - 2026-08-23
 
 ### Fixed

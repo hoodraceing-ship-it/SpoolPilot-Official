@@ -2,6 +2,15 @@
 
 All notable SpoolPilot changes are documented here.
 
+## [0.1.5] - 2026-08-23
+
+### Fixed
+
+- Keep Tare available even when a noisy or mechanically drifting scale never
+  reaches the stability threshold.
+- Clearly warn when a forced tare is captured from a moving reading instead of
+  silently storing a potentially drifting zero point.
+
 ## [0.1.4] - 2026-08-23
 
 ### Fixed

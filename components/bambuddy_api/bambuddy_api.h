@@ -403,11 +403,6 @@ class BambuddyAPIComponent : public Component {
   void local_tare() {
     if (!scale_mode_) return;
     lock_state();
-    if (!display_state_.weight_stable) {
-      unlock_state();
-      ESP_LOGW("bambuddy_api", "Local tare rejected: scale reading is still settling");
-      return;
-    }
     tare_offset_           = display_state_.weight_grams;
     float  force_g         = display_state_.weight_grams;
     bool   force_stable    = display_state_.weight_stable;

@@ -839,17 +839,13 @@ void BambuddyAPIComponent::on_write_tag_result(const std::string &uid,
 // ---------------------------------------------------------------------------
 
 void BambuddyAPIComponent::request_tare() {
-  // Taring while the HX711 moving-average filter is still converging captures
-  // a temporary value. The filter then continues moving and makes an unloaded
-  // scale appear to drift immediately after tare. Only accept a settled value.
+  // Prefer a settled reading, but never lock the user out of tare. A noisy or
+  // mechanically drifting scale may never satisfy the stability detector.
   lock_state();
   const bool tare_stable = display_state_.weight_stable;
   unlock_state();
-  if (!tare_stable) {
-    set_status("Wait for scale to settle before tare");
-    ESP_LOGW(TAG, "Tare rejected: scale reading is still settling");
-    return;
-  }
+  if (!tare_stable)
+    ESP_LOGW(TAG, "Force tare accepted while scale reading is still settling");
 
   if (scale_mode_) {
     local_tare();
@@ -860,14 +856,17 @@ void BambuddyAPIComponent::request_tare() {
     lock_state();
     pending_scale_cmd_ = "tare";
     unlock_state();
-    set_status("Tare sent to scale...");
+    set_status(tare_stable ? "Tare sent to scale..."
+                           : "Force tare sent - reading may drift");
     return;
   }
   // Local scale (no external scale device).
   float new_offset;
   lock_state();
   new_offset = display_state_.weight_grams;
-  display_state_.status_message = "Tare applied";
+  display_state_.status_message = tare_stable
+                                      ? "Tare applied"
+                                      : "Force tare applied - reading may drift";
   unlock_state();
   tare_offset_ = new_offset;
 

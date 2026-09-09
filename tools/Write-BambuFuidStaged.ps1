@@ -54,9 +54,33 @@ function Invoke-Pm3 {
     param([Parameter(Mandatory)][string]$Command)
     $oldLocation = Get-Location
     try {
-        Set-Location -LiteralPath (Split-Path -Parent $Pm3Path)
-        $lines = & $Pm3Path -p $Port --incognito -c $Command 2>&1
+        $clientDirectory = Split-Path -Parent $Pm3Path
+        $sessionLogDirectory = Join-Path $clientDirectory '.proxmark3\logs'
+        $commandStarted = Get-Date
+        Set-Location -LiteralPath $clientDirectory
+        # The RRG Windows bundle requires setup.bat plus its Bash `pm3`
+        # wrapper. Calling proxmark3.exe directly produces no usable output.
+        $escapedCommand = $Command.Replace('"', '\"')
+        $launcherCommand = 'call setup.bat && bash pm3 -f -p {0} -c "{1}"' -f $Port, $escapedCommand
+        $lines = & $env:ComSpec /d /s /c $launcherCommand 2>&1
         $text = Remove-Ansi (($lines | Out-String))
+
+        # Some Windows builds write through the console API instead of the
+        # redirected stdout pipe. Their per-session log remains complete.
+        if (Test-Path -LiteralPath $sessionLogDirectory -PathType Container) {
+            Start-Sleep -Milliseconds 100
+            $sessionLog = Get-ChildItem -LiteralPath $sessionLogDirectory -File -Filter 'log_*.txt' |
+                Where-Object { $_.LastWriteTime -ge $commandStarted.AddSeconds(-2) } |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+            if ($null -ne $sessionLog) {
+                $sessionText = Remove-Ansi (Get-Content -LiteralPath $sessionLog.FullName -Raw)
+                if (-not [string]::IsNullOrWhiteSpace($sessionText)) {
+                    $text = $sessionText
+                }
+            }
+        }
+
         $script:LastPm3Output = $text
         Add-Content -LiteralPath $LogPath -Value ("COMMAND: {0}`r`n{1}" -f $Command, $text)
         return $text

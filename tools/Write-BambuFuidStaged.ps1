@@ -62,7 +62,17 @@ function Invoke-Pm3 {
         # wrapper. Calling proxmark3.exe directly produces no usable output.
         $escapedCommand = $Command.Replace('"', '\"')
         $launcherCommand = 'call setup.bat && bash pm3 -f -p {0} -c "{1}"' -f $Port, $escapedCommand
-        $lines = & $env:ComSpec /d /s /c $launcherCommand 2>&1
+        # Proxmark reports recoverable RF/PRNG diagnostics on stderr. Capture
+        # them for command evaluation without letting PowerShell convert them
+        # into terminating NativeCommandError exceptions.
+        $savedErrorActionPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $lines = & $env:ComSpec /d /s /c $launcherCommand 2>&1
+        }
+        finally {
+            $ErrorActionPreference = $savedErrorActionPreference
+        }
         $text = Remove-Ansi (($lines | Out-String))
 
         # Some Windows builds write through the console API instead of the
@@ -318,8 +328,8 @@ Write-Host ''
 Write-Host 'All ordinary data blocks match the Bambu PETG Basic Black dump.' -ForegroundColor Green
 Write-Host 'The next stage changes the sector keys/access conditions and permanently changes the UID.' -ForegroundColor Red
 Write-Host 'After block 0 is written, this write-once FUID tag cannot be restored to a blank tag.' -ForegroundColor Red
-$confirmation = Read-Host "Type LOCK $targetUid to commit this tag"
-if ($confirmation.Trim() -ine "LOCK $targetUid") {
+$confirmation = Read-Host 'Type LOCK to commit this tag'
+if ($confirmation.Trim() -ine 'LOCK') {
     Write-Status 'Stopped safely before protected trailers and permanent UID.' Yellow
     exit 0
 }

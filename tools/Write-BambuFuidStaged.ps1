@@ -83,6 +83,12 @@ function Invoke-Pm3 {
 
         $script:LastPm3Output = $text
         Add-Content -LiteralPath $LogPath -Value ("COMMAND: {0}`r`n{1}" -f $Command, $text)
+        if ($text -match 'invalid serial port|access.+denied|could not open') {
+            Start-Sleep -Milliseconds 2500
+        }
+        else {
+            Start-Sleep -Milliseconds 900
+        }
         return $text
     }
     finally {
@@ -292,6 +298,9 @@ Write-Host '  - The tag must be your fresh AA55C396 CUID/FUID sticker.' -Foregro
 Write-Host ''
 $ready = Read-Host 'Type READY to begin the reversible data-block stage'
 if ($ready.Trim() -ine 'READY') { throw 'Cancelled before writing.' }
+
+Write-Status "Waiting for Windows to release $Port..." Cyan
+Start-Sleep -Seconds 3
 
 $startingUid = Get-Uid
 if ($startingUid -ne $FactoryUid -and $startingUid -ne $targetUid) {

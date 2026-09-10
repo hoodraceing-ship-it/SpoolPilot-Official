@@ -25,7 +25,7 @@ jobs:
         run: |
           py -m tag_writer.test_tag_writer
           py -c "from tag_writer import client_support; assert client_support.missing_client_items('.')"
-          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v047.pyw').read_text(); assert '0.4.7' in s; assert 'PYINSTALLER_RESET_ENVIRONMENT' in s; assert 'import tkinter as tk' in s; assert 'ATQA_0004_RE' in s; assert 'force=True' in s"
+          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v048.pyw').read_text(); assert '0.4.8' in s; assert 'Reader BCC/collision errors' in s; assert 'Supplemental-probe BCC warnings' in s; assert '_final_verify_resilient' in s"
       - name: Build portable EXE
         shell: pwsh
         run: >-
@@ -41,9 +41,10 @@ jobs:
           --hidden-import tkinter.filedialog
           --hidden-import tkinter.messagebox
           --add-data "tag_writer/SpoolPilotTagWriter.pyw;."
+          --add-data "tag_writer/SpoolPilotTagWriter_v047.pyw;."
           --add-data "tag_writer/client_support.py;."
           --name SpoolPilot-Tag-Writer
-          tag_writer/SpoolPilotTagWriter_v047.pyw
+          tag_writer/SpoolPilotTagWriter_v048.pyw
       - name: Smoke test packaged EXE
         shell: pwsh
         run: |
@@ -70,9 +71,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.4.7'
+          $tag = 'tag-writer-v0.4.8'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.7' --notes 'Fixes sector trailer protection with current Proxmark clients by using --force only for the deliberate strict-ACL trailer write, then verifying with the selected filament keys before continuing.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.8' --notes 'Fixes false RF-interference warnings by separating dedicated reader-scan BCC errors from supplemental probe warnings. Final verification now retries only missing evidence and still requires every expected block plus the target UID to verify exactly.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

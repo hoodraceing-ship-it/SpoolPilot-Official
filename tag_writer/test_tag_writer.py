@@ -125,6 +125,13 @@ def test_release_version_and_assets():
     assert release.exe_url.endswith("app.exe")
 
 
+def test_windows_script_path_is_converted_for_msys():
+    converted = module.windows_path_to_msys(
+        Path(r"C:\Users\hoodr\AppData\Local\SpoolPilotTagWriter\pm3-test.cmd")
+    )
+    assert converted == "/c/Users/hoodr/AppData/Local/SpoolPilotTagWriter/pm3-test.cmd"
+
+
 def make_image():
     dump = bytearray(1024)
     uid = bytes.fromhex("064729CE")
@@ -281,6 +288,7 @@ if __name__ == "__main__":
     test_reader_diagnostic_explains_collision()
     test_reader_diagnostic_explains_no_tag()
     test_release_version_and_assets()
+    test_windows_script_path_is_converted_for_msys()
     test_full_safe_writer_flow_and_resume()
     test_mismatched_protected_sector_stops_before_any_write()
     print("All tests passed")

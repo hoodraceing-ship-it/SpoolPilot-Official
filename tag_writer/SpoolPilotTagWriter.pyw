@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 
 APP_NAME = "SpoolPilot Tag Writer"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.4.1"
 FACTORY_UID = "AA55C396"
 DEFAULT_KEY = "FFFFFFFFFFFF"
 LIBRARY_REPOSITORY = "queengooborg/Bambu-Lab-RFID-Library"
@@ -71,6 +71,20 @@ def utc_now() -> str:
 
 def normalize_hex(value: str) -> str:
     return re.sub(r"[^0-9A-Fa-f]", "", value).upper()
+
+
+def windows_path_to_msys(path: Path) -> str:
+    """Convert a Windows drive path to the absolute form expected by MSYS bash."""
+    value = str(path)
+    match = re.match(r"^([A-Za-z]):[\\/](.*)$", value)
+    if not match:
+        value = str(path.resolve())
+        match = re.match(r"^([A-Za-z]):[\\/](.*)$", value)
+    if not match:
+        return Path(value).as_posix()
+    drive = match.group(1).lower()
+    remainder = match.group(2).replace("\\", "/")
+    return f"/{drive}/{remainder}"
 
 
 def xor_bcc(uid: bytes) -> int:
@@ -361,10 +375,15 @@ class Pm3Runner:
         command_file = APP_DIR / f"pm3-{uuid.uuid4().hex}.cmd"
         command_file.parent.mkdir(parents=True, exist_ok=True)
         command_file.write_text("\n".join(command_list) + "\n", encoding="utf-8", newline="\n")
-        posix_command_file = command_file.as_posix()
-        launcher = (
-            f'call setup.bat && bash pm3 -f -p {self.port} '
-            f'-s "{posix_command_file}"'
+        posix_command_file = windows_path_to_msys(command_file)
+        launcher_file = APP_DIR / f"pm3-launch-{uuid.uuid4().hex}.bat"
+        launcher_file.write_text(
+            "@echo off\r\n"
+            "call setup.bat\r\n"
+            f'bash pm3 -f -p {self.port} -s "{posix_command_file}"\r\n'
+            "exit /b %ERRORLEVEL%\r\n",
+            encoding="ascii",
+            newline="",
         )
         creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self.output(f"{phase} ({len(command_list)} commands)…")
@@ -372,7 +391,12 @@ class Pm3Runner:
             for attempt in range(1, 5):
                 started = time.monotonic()
                 process = subprocess.Popen(
-                    [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/s", "/c", launcher],
+                    [
+                        os.environ.get("COMSPEC", "cmd.exe"),
+                        "/d",
+                        "/c",
+                        str(launcher_file),
+                    ],
                     cwd=str(self.client_directory),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
@@ -412,6 +436,7 @@ class Pm3Runner:
                 time.sleep(delay)
         finally:
             command_file.unlink(missing_ok=True)
+            launcher_file.unlink(missing_ok=True)
         time.sleep(1.5)
         return Pm3Result(cleaned, process.returncode, self.log_file)
 
@@ -1091,12 +1116,20 @@ class TagWriterApp(tk.Tk):
         )
         self.selection_label.pack(fill="x", pady=(8, 16))
 
+        diagnostic_row = ttk.Frame(right, style="Card.TFrame")
+        diagnostic_row.pack(fill="x", pady=(0, 8))
         self.diagnose_button = ttk.Button(
-            right,
+            diagnostic_row,
             text="Diagnose Reader / Tag",
             command=self._diagnose_reader,
         )
-        self.diagnose_button.pack(fill="x", pady=(0, 8))
+        self.diagnose_button.pack(side="left", fill="x", expand=True, padx=(0, 6))
+        self.open_logs_button = ttk.Button(
+            diagnostic_row,
+            text="Open Logs Folder",
+            command=self._open_logs_folder,
+        )
+        self.open_logs_button.pack(side="right")
         self.check_button = ttk.Button(right, text="Check Tag", command=self._check_tag)
         self.check_button.pack(fill="x", pady=(0, 8))
         self.write_button = ttk.Button(right, text="WRITE TAG", style="Write.TButton", command=self._write_tag)
@@ -1351,6 +1384,17 @@ exit /b 1
             return analyze_reader_diagnostic(result, expected_scans=10)
 
         self._start_task("diagnose", task)
+
+    def _open_logs_folder(self) -> None:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        if hasattr(os, "startfile"):
+            os.startfile(str(LOG_DIR))
+        else:
+            messagebox.showinfo(
+                "SpoolPilot logs",
+                str(LOG_DIR),
+                parent=self,
+            )
 
     def _check_tag(self) -> None:
         try:

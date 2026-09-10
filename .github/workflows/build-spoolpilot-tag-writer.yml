@@ -51,9 +51,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.4.0'
+          $tag = 'tag-writer-v0.4.1'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.0' --notes 'Adds automatic update notifications and one-click verified in-app updates.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.1' --notes 'Fixes Proxmark command scripts when the client path contains spaces and adds a main-screen Open Logs Folder button.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

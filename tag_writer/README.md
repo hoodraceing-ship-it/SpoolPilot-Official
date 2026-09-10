@@ -29,7 +29,7 @@ Run `Install-SpoolPilotTagWriter.ps1` from PowerShell. It downloads the standalo
 
 The application automatically finds recent `rrg_other-*` Proxmark packages under Downloads and detects USB serial COM ports. Both can also be selected manually.
 
-Version 0.4.0 automatically checks GitHub for new releases when the app starts. An orange **UPDATE AVAILABLE** button appears when a newer version exists; one click downloads the release, verifies its published SHA-256 checksum, replaces the current EXE after it closes, and reopens the updated app. It also includes high-contrast input text and a one-click, read-only reader/tag diagnosis with plain-English guidance.
+Version 0.4.1 fixes Proxmark command-file launching when the selected client folder contains spaces and adds an **Open Logs Folder** button next to **Diagnose Reader / Tag**. The app automatically checks GitHub for new releases; an orange **UPDATE AVAILABLE** button downloads the release, verifies its published SHA-256 checksum, replaces the current EXE after it closes, and reopens the updated app.
 
 ## Library behavior
 

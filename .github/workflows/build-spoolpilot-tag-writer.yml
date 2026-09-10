@@ -18,11 +18,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install build dependencies
+        run: py -m pip install pyinstaller py7zr
       - name: Run tests
         shell: pwsh
-        run: py -m tag_writer.test_tag_writer
-      - name: Install PyInstaller
-        run: py -m pip install pyinstaller
+        run: |
+          py -m tag_writer.test_tag_writer
+          py -c "from tag_writer import client_support; assert client_support.missing_client_items('.')"
       - name: Build portable EXE
         shell: pwsh
         run: >-
@@ -31,8 +33,11 @@ jobs:
           --clean
           --onefile
           --windowed
+          --collect-all py7zr
+          --add-data "tag_writer/SpoolPilotTagWriter.pyw;."
+          --add-data "tag_writer/client_support.py;."
           --name SpoolPilot-Tag-Writer
-          tag_writer/SpoolPilotTagWriter.pyw
+          tag_writer/SpoolPilotTagWriterManaged.pyw
       - name: Create SHA-256 file
         shell: pwsh
         run: |
@@ -51,9 +56,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.4.2'
+          $tag = 'tag-writer-v0.4.3'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.2' --notes 'Replaces the updater with a logged, verified transactional installer that restarts the new app and rolls back on startup failure.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.3' --notes 'Adds automatic Proxmark client repair/installation when required files are missing and bypasses the MSYS script-path quoting problem by invoking the native Proxmark client directly.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

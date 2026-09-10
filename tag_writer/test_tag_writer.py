@@ -1,5 +1,6 @@
 import importlib.machinery
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -143,17 +144,19 @@ def test_transactional_update_helper_and_windows_syntax():
         with tempfile.TemporaryDirectory() as folder:
             script_file = Path(folder) / "updater.ps1"
             script_file.write_text(script, encoding="utf-8-sig")
+            environment = os.environ.copy()
+            environment["SPOOLPILOT_UPDATE_SCRIPT"] = str(script_file)
             result = subprocess.run(
                 [
                     "powershell.exe",
                     "-NoLogo",
                     "-NoProfile",
                     "-Command",
-                    "[void][scriptblock]::Create([IO.File]::ReadAllText($args[0]))",
-                    str(script_file),
+                    "[void][scriptblock]::Create([IO.File]::ReadAllText($env:SPOOLPILOT_UPDATE_SCRIPT))",
                 ],
                 capture_output=True,
                 text=True,
+                env=environment,
             )
             assert result.returncode == 0, result.stderr
 

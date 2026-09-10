@@ -65,6 +65,44 @@ def test_blank_sector_auth_does_not_require_target_data():
     assert reads == [("default", "A", "FFFFFFFFFFFF", "0" * 32)]
 
 
+def diagnostic_result(reader_bodies, info_body=""):
+    output = ["[+] Communicating with PM3 over USB-CDC"]
+    output.extend(
+        f"[usb|script] pm3 --> hf 14a reader\n{body}" for body in reader_bodies
+    )
+    output.append(f"[usb|script] pm3 --> hf mf info\n{info_body}")
+    return module.Pm3Result("\n".join(output), 0, Path("diagnostic.log"))
+
+
+def test_reader_diagnostic_passes_stable_fuid_tag():
+    body = """[+]  UID: AA 55 C3 96
+[+]  SAK: 08 [2]
+[+]    MIFARE Classic 1K"""
+    result = diagnostic_result([body] * 10, "[+] Magic capabilities... Write Once / FUID")
+    report = module.analyze_reader_diagnostic(result)
+    assert report.summary.startswith("PASS")
+    assert "Tag detections: 10/10" in report.details
+    assert "AA55C396" in report.details
+
+
+def test_reader_diagnostic_explains_collision():
+    good = """[+]  UID: AA 55 C3 96
+[+]  SAK: 08 [2]
+[+]    MIFARE Classic 1K"""
+    bad = "[#] BCC0 incorrect, got 0x00, expected 0xaa\n[#] Aborting"
+    result = diagnostic_result([good] * 7 + [bad] * 3)
+    report = module.analyze_reader_diagnostic(result)
+    assert report.summary.startswith("RF INTERFERENCE")
+    assert "BCC/collision errors: 3" in report.details
+
+
+def test_reader_diagnostic_explains_no_tag():
+    result = diagnostic_result(["[=] No known/supported 13.56 MHz tags found"] * 10)
+    report = module.analyze_reader_diagnostic(result)
+    assert report.summary.startswith("TAG NOT DETECTED")
+    assert "Tag detections: 0/10" in report.details
+
+
 def make_image():
     dump = bytearray(1024)
     uid = bytes.fromhex("064729CE")
@@ -217,6 +255,9 @@ if __name__ == "__main__":
     test_command_shapes()
     test_event_and_auth_parser_handles_script_prompt()
     test_blank_sector_auth_does_not_require_target_data()
+    test_reader_diagnostic_passes_stable_fuid_tag()
+    test_reader_diagnostic_explains_collision()
+    test_reader_diagnostic_explains_no_tag()
     test_full_safe_writer_flow_and_resume()
     test_mismatched_protected_sector_stops_before_any_write()
     print("All tests passed")

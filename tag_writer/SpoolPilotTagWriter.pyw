@@ -23,7 +23,7 @@ from tkinter import filedialog, messagebox, ttk
 
 
 APP_NAME = "SpoolPilot Tag Writer"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 FACTORY_UID = "AA55C396"
 DEFAULT_KEY = "FFFFFFFFFFFF"
 LIBRARY_REPOSITORY = "queengooborg/Bambu-Lab-RFID-Library"
@@ -270,6 +270,17 @@ class Pm3Result:
     log_file: Path
 
 
+@dataclass(frozen=True)
+class DiagnosticReport:
+    summary: str
+    details: str
+    log_file: Path
+
+    @property
+    def display_text(self) -> str:
+        return f"{self.summary}\n\n{self.details}\n\nRaw diagnostic log:\n{self.log_file}"
+
+
 class Pm3Runner:
     def __init__(
         self,
@@ -416,6 +427,91 @@ def successful_block_reads(
         for value in values:
             successful.append((mode, key_type, key, value))
     return successful
+
+
+def analyze_reader_diagnostic(result: Pm3Result, expected_scans: int = 10) -> DiagnosticReport:
+    """Turn a read-only PM3 diagnostic session into plain-English guidance."""
+    output = result.output
+    lowered = output.lower()
+    events = parse_events(output)
+    reader_events = [body for command, body in events if command == "hf 14a reader"]
+    detected_uids = [
+        normalize_hex(matches[0])
+        for body in reader_events
+        if (matches := UID_RE.findall(body))
+    ]
+    classic_reads = sum(
+        1
+        for body in reader_events
+        if UID_RE.search(body) and SAK08_RE.search(body) and "MIFARE Classic 1K" in body
+    )
+    bcc_errors = output.count("BCC0 incorrect")
+    unique_uids = sorted(set(detected_uids))
+    communicated = (
+        "communicating with pm3" in lowered
+        or any(command == "hw version" for command, _body in events)
+    )
+
+    lines = [
+        f"Proxmark communication: {'PASS' if communicated else 'FAIL'}",
+        f"Tag detections: {len(detected_uids)}/{expected_scans}",
+        f"MIFARE Classic 1K / SAK 08 reads: {classic_reads}/{expected_scans}",
+        f"BCC/collision errors: {bcc_errors}",
+        "UIDs detected: " + (", ".join(unique_uids) if unique_uids else "none"),
+    ]
+
+    if not communicated:
+        summary = "CONNECTION PROBLEM — The app could not communicate with the Proxmark"
+        advice = (
+            "Close other Proxmark windows, reconnect its USB cable, click Refresh, and verify "
+            "the selected COM port. The tag was not written."
+        )
+    elif not reader_events:
+        summary = "CLIENT PROBLEM — The Proxmark commands did not run correctly"
+        advice = (
+            "Verify that the selected folder contains setup.bat and the pm3 launcher. "
+            "Reinstall or move the complete RRG client to a folder without spaces if this repeats."
+        )
+    elif bcc_errors or len(unique_uids) > 1:
+        summary = "RF INTERFERENCE — The reader is seeing a collision or unstable response"
+        advice = (
+            "Keep only one sticker on the HF antenna. Move the tag roll, phones, cards, metal, "
+            "and every other RFID tag at least 3 feet away, then reposition the sticker and rerun "
+            "Diagnosis. Do not write this tag yet."
+        )
+    elif not detected_uids:
+        summary = "TAG NOT DETECTED — The Proxmark is connected, but the tag never answered"
+        advice = (
+            "Center one tag flat on the HF antenna and slowly try different positions. Test a known "
+            "untouched tag. If an untouched tag works but this one does not, this tag is likely bad. "
+            "If no tags work, reconnect USB and inspect the HF antenna connection."
+        )
+    elif len(detected_uids) < expected_scans:
+        summary = "UNSTABLE TAG — It was detected only some of the time"
+        advice = (
+            "Do not write yet. Keep the tag still and flat, remove nearby tags or metal, and rerun "
+            "Diagnosis. A safe write needs the same tag to be read consistently."
+        )
+    elif classic_reads != expected_scans:
+        summary = "WRONG OR UNSTABLE TAG TYPE — It is not consistently Classic 1K / SAK 08"
+        advice = (
+            "Do not write it. This app requires a compatible MIFARE Classic 1K CUID/FUID tag that "
+            "reports SAK 08 on every scan."
+        )
+    else:
+        info_body = "\n".join(body for command, body in events if command == "hf mf info")
+        if "Write Once / FUID" in info_body or "Gen 2 / CUID" in info_body:
+            capability = "Compatible CUID/FUID capability was reported."
+        else:
+            capability = (
+                "The tag was stable, but compatible CUID/FUID capability was not confirmed; "
+                "use Check Tag before writing."
+            )
+        summary = "PASS — The Proxmark and tag detection are stable"
+        advice = f"{capability} You can proceed to Check Tag."
+
+    lines.extend(("", advice, "", "Diagnosis is read-only; no tag data was changed."))
+    return DiagnosticReport(summary, "\n".join(lines), result.log_file)
 
 
 @dataclass
@@ -816,6 +912,40 @@ class TagWriterApp(tk.Tk):
         style.configure("Card.TLabel", background="#18212c", foreground="#edf2f7")
         style.configure("Title.TLabel", font=("Segoe UI Semibold", 22), foreground="#45d483")
         style.configure("Sub.TLabel", foreground="#9fb0c3")
+        style.configure(
+            "Input.TEntry",
+            fieldbackground="#ffffff",
+            foreground="#101820",
+            insertcolor="#101820",
+            selectbackground="#1c9b5f",
+            selectforeground="#ffffff",
+            padding=(8, 6),
+        )
+        style.map(
+            "Input.TEntry",
+            fieldbackground=[("disabled", "#e5e7eb"), ("!disabled", "#ffffff")],
+            foreground=[("disabled", "#374151"), ("!disabled", "#101820")],
+        )
+        style.configure(
+            "Input.TCombobox",
+            fieldbackground="#ffffff",
+            background="#ffffff",
+            foreground="#101820",
+            arrowcolor="#101820",
+            selectbackground="#1c9b5f",
+            selectforeground="#ffffff",
+            padding=(6, 4),
+        )
+        style.map(
+            "Input.TCombobox",
+            fieldbackground=[("readonly", "#ffffff"), ("disabled", "#e5e7eb")],
+            foreground=[("readonly", "#101820"), ("disabled", "#374151")],
+            arrowcolor=[("readonly", "#101820"), ("disabled", "#6b7280")],
+        )
+        self.option_add("*TCombobox*Listbox.background", "#ffffff")
+        self.option_add("*TCombobox*Listbox.foreground", "#101820")
+        self.option_add("*TCombobox*Listbox.selectBackground", "#1c9b5f")
+        self.option_add("*TCombobox*Listbox.selectForeground", "#ffffff")
         style.configure("TButton", padding=(12, 8))
         style.configure("Write.TButton", font=("Segoe UI Semibold", 12), padding=(18, 12))
         style.map("Write.TButton", background=[("!disabled", "#1c9b5f"), ("active", "#24b872")])
@@ -836,11 +966,19 @@ class TagWriterApp(tk.Tk):
         connection.pack(fill="x", padx=22, pady=(0, 12))
         ttk.Label(connection, text="Proxmark folder", style="Card.TLabel").grid(row=0, column=0, sticky="w")
         self.client_var = tk.StringVar()
-        ttk.Entry(connection, textvariable=self.client_var).grid(row=1, column=0, sticky="ew", padx=(0, 8))
+        ttk.Entry(connection, textvariable=self.client_var, style="Input.TEntry").grid(
+            row=1, column=0, sticky="ew", padx=(0, 8)
+        )
         ttk.Button(connection, text="Browse", command=self._browse_client).grid(row=1, column=1, padx=(0, 16))
         ttk.Label(connection, text="Port", style="Card.TLabel").grid(row=0, column=2, sticky="w")
         self.port_var = tk.StringVar()
-        self.port_combo = ttk.Combobox(connection, textvariable=self.port_var, width=10, state="readonly")
+        self.port_combo = ttk.Combobox(
+            connection,
+            textvariable=self.port_var,
+            width=10,
+            state="readonly",
+            style="Input.TCombobox",
+        )
         self.port_combo.grid(row=1, column=2, padx=(0, 8))
         ttk.Button(connection, text="Refresh", command=self._refresh_ports).grid(row=1, column=3)
         connection.columnconfigure(0, weight=1)
@@ -857,7 +995,9 @@ class TagWriterApp(tk.Tk):
         search_row.pack(fill="x", pady=(0, 10))
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._filter_entries())
-        ttk.Entry(search_row, textvariable=self.search_var).pack(side="left", fill="x", expand=True, padx=(0, 8))
+        ttk.Entry(search_row, textvariable=self.search_var, style="Input.TEntry").pack(
+            side="left", fill="x", expand=True, padx=(0, 8)
+        )
         self.update_button = ttk.Button(search_row, text="Update Library", command=self._update_catalog)
         self.update_button.pack(side="right")
 
@@ -879,6 +1019,12 @@ class TagWriterApp(tk.Tk):
         )
         self.selection_label.pack(fill="x", pady=(8, 16))
 
+        self.diagnose_button = ttk.Button(
+            right,
+            text="Diagnose Reader / Tag",
+            command=self._diagnose_reader,
+        )
+        self.diagnose_button.pack(fill="x", pady=(0, 8))
         self.check_button = ttk.Button(right, text="Check Tag", command=self._check_tag)
         self.check_button.pack(fill="x", pady=(0, 8))
         self.write_button = ttk.Button(right, text="WRITE TAG", style="Write.TButton", command=self._write_tag)
@@ -975,12 +1121,42 @@ class TagWriterApp(tk.Tk):
     def _validate_selection(self) -> tuple[FilamentEntry, Path, str]:
         if self.selected_entry is None:
             raise ValueError("Select a filament first")
+        client, port = self._validate_reader_selection()
+        return self.selected_entry, client, port
+
+    def _validate_reader_selection(self) -> tuple[Path, str]:
         client = Path(self.client_var.get().strip())
         port = self.port_var.get().strip().upper()
         runner = Pm3Runner(client, port, self._post_log)
         runner.validate()
         save_settings(str(client), port)
-        return self.selected_entry, client, port
+        return client, port
+
+    def _diagnose_reader(self) -> None:
+        try:
+            client, port = self._validate_reader_selection()
+        except Exception as exc:
+            messagebox.showerror(APP_NAME, str(exc), parent=self)
+            return
+        ready = messagebox.askokcancel(
+            "Read-only reader/tag diagnosis",
+            "This test will not write anything.\n\n"
+            "1. Move every other RFID tag, the tag roll, cards, phones, and metal at least 3 feet away.\n"
+            "2. Put exactly one tag flat and centered on the Proxmark HF antenna.\n"
+            "3. Keep the tag still until the test finishes.\n\n"
+            "Start diagnosis?",
+            parent=self,
+        )
+        if not ready:
+            return
+
+        def task():
+            runner = Pm3Runner(client, port, self._post_log)
+            commands = ["hw version"] + ["hf 14a reader"] * 10 + ["hf mf info"]
+            result = runner.run(commands, "Read-only diagnosis", timeout=180)
+            return analyze_reader_diagnostic(result, expected_scans=10)
+
+        self._start_task("diagnose", task)
 
     def _check_tag(self) -> None:
         try:
@@ -1042,8 +1218,66 @@ class TagWriterApp(tk.Tk):
 
     def _set_controls(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
-        for widget in (self.update_button, self.check_button, self.write_button):
+        for widget in (
+            self.update_button,
+            self.diagnose_button,
+            self.check_button,
+            self.write_button,
+        ):
             widget.configure(state=state)
+
+    def _show_diagnostic_report(self, report: DiagnosticReport) -> None:
+        dialog = tk.Toplevel(self)
+        dialog.title("SpoolPilot Reader / Tag Diagnosis")
+        dialog.geometry("760x520")
+        dialog.minsize(620, 420)
+        dialog.configure(bg="#10151c")
+        dialog.transient(self)
+
+        heading_color = "#45d483" if report.summary.startswith("PASS") else "#ffb454"
+        tk.Label(
+            dialog,
+            text=report.summary,
+            bg="#10151c",
+            fg=heading_color,
+            font=("Segoe UI Semibold", 15),
+            wraplength=700,
+            justify="left",
+        ).pack(fill="x", padx=20, pady=(18, 10))
+
+        report_box = tk.Text(
+            dialog,
+            bg="#ffffff",
+            fg="#101820",
+            selectbackground="#1c9b5f",
+            selectforeground="#ffffff",
+            insertbackground="#101820",
+            wrap="word",
+            relief="flat",
+            font=("Segoe UI", 10),
+            padx=12,
+            pady=12,
+        )
+        report_box.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        report_box.insert("1.0", report.display_text)
+        report_box.configure(state="disabled")
+
+        buttons = ttk.Frame(dialog, padding=(20, 0, 20, 18))
+        buttons.pack(fill="x")
+
+        def copy_report() -> None:
+            dialog.clipboard_clear()
+            dialog.clipboard_append(report.display_text)
+
+        ttk.Button(buttons, text="Copy Report", command=copy_report).pack(side="left")
+        if hasattr(os, "startfile"):
+            ttk.Button(
+                buttons,
+                text="Open Logs Folder",
+                command=lambda: os.startfile(str(report.log_file.parent)),
+            ).pack(side="left", padx=(8, 0))
+        ttk.Button(buttons, text="Close", command=dialog.destroy).pack(side="right")
+        dialog.grab_set()
 
     def _post_status(self, message: str) -> None:
         self.events.put(("status", message))
@@ -1082,6 +1316,12 @@ class TagWriterApp(tk.Tk):
                     self._set_controls(True)
                     self._set_status(str(payload))
                     messagebox.showinfo(APP_NAME, str(payload), parent=self)
+                elif kind == "diagnose_done":
+                    self.busy = False
+                    self._set_controls(True)
+                    report = payload
+                    self._set_status(report.summary)
+                    self._show_diagnostic_report(report)
                 elif kind == "error":
                     message, details = payload
                     self.busy = False

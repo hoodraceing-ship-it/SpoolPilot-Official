@@ -29,6 +29,8 @@ Run `Install-SpoolPilotTagWriter.ps1` from PowerShell. It downloads the standalo
 
 The application automatically finds recent `rrg_other-*` Proxmark packages under Downloads and detects USB serial COM ports. Both can also be selected manually.
 
+Version 0.3.0 uses high-contrast dark text in all light input fields and adds a one-click, read-only reader/tag diagnosis. The diagnosis checks Proxmark communication, ten consecutive tag scans, UID consistency, BCC/collision errors, MIFARE Classic 1K / SAK 08 identification, and reported CUID/FUID capability. It presents plain-English guidance without requiring PowerShell.
+
 ## Library behavior
 
 The app reads the current public `queengooborg/Bambu-Lab-RFID-Library` Git tree and caches a searchable catalog. Thousands of UID duplicates are collapsed into one deterministic dump per material/product/color. Only the selected dump and key file are downloaded.

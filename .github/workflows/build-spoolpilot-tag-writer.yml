@@ -51,9 +51,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.2.0'
+          $tag = 'tag-writer-v0.3.0'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.2.0' --notes 'Safe searchable Windows writer for compatible Bambu filament FUID tags.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.3.0' --notes 'Adds a one-click, read-only reader/tag diagnosis report and improves input readability with high-contrast text.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

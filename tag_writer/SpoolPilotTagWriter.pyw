@@ -25,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 
 APP_NAME = "SpoolPilot Tag Writer"
-APP_VERSION = "0.4.1"
+APP_VERSION = "0.4.2"
 FACTORY_UID = "AA55C396"
 DEFAULT_KEY = "FFFFFFFFFFFF"
 LIBRARY_REPOSITORY = "queengooborg/Bambu-Lab-RFID-Library"
@@ -41,6 +41,111 @@ LATEST_RELEASE_URL = (
     "https://api.github.com/repos/hoodraceing-ship-it/"
     "SpoolPilot-Official/releases/latest"
 )
+
+UPDATE_HELPER_SCRIPT = r'''param(
+    [Parameter(Mandatory = $true)][int]$ParentPid,
+    [Parameter(Mandatory = $true)][string]$Source,
+    [Parameter(Mandatory = $true)][string]$Checksum,
+    [Parameter(Mandatory = $true)][string]$ExpectedHash,
+    [Parameter(Mandatory = $true)][string]$Target,
+    [Parameter(Mandatory = $true)][string]$Log
+)
+
+$ErrorActionPreference = 'Stop'
+$success = $false
+
+function Write-UpdateLog([string]$Message) {
+    $stamp = (Get-Date).ToUniversalTime().ToString('o')
+    Add-Content -LiteralPath $Log -Value "$stamp  $Message" -Encoding UTF8
+}
+
+try {
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Log) | Out-Null
+    Write-UpdateLog "Updater started. Parent PID=$ParentPid Target=$Target"
+
+    for ($wait = 1; $wait -le 120; $wait++) {
+        if (-not (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    if (Get-Process -Id $ParentPid -ErrorAction SilentlyContinue) {
+        throw 'The running application did not close within 60 seconds.'
+    }
+
+    $replacement = "$Target.new"
+    $backup = "$Target.previous"
+    $swapped = $false
+
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        try {
+            Remove-Item -LiteralPath $replacement -Force -ErrorAction SilentlyContinue
+            Copy-Item -LiteralPath $Source -Destination $replacement -Force
+            $replacementHash = (Get-FileHash -LiteralPath $replacement -Algorithm SHA256).Hash
+            if ($replacementHash -ine $ExpectedHash) {
+                throw 'The staged replacement failed SHA-256 verification.'
+            }
+
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+            Move-Item -LiteralPath $Target -Destination $backup -Force
+            try {
+                Move-Item -LiteralPath $replacement -Destination $Target -Force
+            }
+            catch {
+                if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $Target)) {
+                    Move-Item -LiteralPath $backup -Destination $Target -Force
+                }
+                throw
+            }
+            $swapped = $true
+            Write-UpdateLog "Replacement installed on attempt $attempt."
+            break
+        }
+        catch {
+            if ((Test-Path -LiteralPath $backup) -and -not (Test-Path -LiteralPath $Target)) {
+                Move-Item -LiteralPath $backup -Destination $Target -Force
+            }
+            Remove-Item -LiteralPath $replacement -Force -ErrorAction SilentlyContinue
+            Write-UpdateLog "Replacement attempt $attempt failed: $($_.Exception.Message)"
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    if (-not $swapped) { throw 'The application file could not be replaced after 60 attempts.' }
+
+    try {
+        $newProcess = Start-Process -FilePath $Target -PassThru
+        Start-Sleep -Seconds 3
+        if ($newProcess.HasExited) {
+            throw "The updated application exited immediately with code $($newProcess.ExitCode)."
+        }
+    }
+    catch {
+        Write-UpdateLog "New version failed to start; restoring the previous version: $($_.Exception.Message)"
+        if (Test-Path -LiteralPath $Target) {
+            Remove-Item -LiteralPath $Target -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -LiteralPath $backup) {
+            Move-Item -LiteralPath $backup -Destination $Target -Force
+            Start-Process -FilePath $Target | Out-Null
+        }
+        throw
+    }
+
+    Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $Source -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $Checksum -Force -ErrorAction SilentlyContinue
+    Write-UpdateLog 'Update completed and the new application is running.'
+    $success = $true
+}
+catch {
+    Write-UpdateLog "UPDATE FAILED: $($_.Exception.Message)"
+}
+
+if ($success) {
+    Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
+    exit 0
+}
+exit 1
+'''
 
 LOCAL_APPDATA = Path(os.environ.get("LOCALAPPDATA", Path.home()))
 APP_DIR = LOCAL_APPDATA / "SpoolPilotTagWriter"
@@ -1262,57 +1367,64 @@ class TagWriterApp(tk.Tk):
             if digest.hexdigest().lower() != expected_hash:
                 exe_file.unlink(missing_ok=True)
                 raise RuntimeError("The update failed SHA-256 verification and was removed")
-            return release, exe_file, hash_file
+            return release, exe_file, hash_file, expected_hash
 
         self._start_task("app_update", task)
 
     def _launch_app_update(
         self,
-        payload: tuple[AppRelease, Path, Path],
+        payload: tuple[AppRelease, Path, Path, str],
     ) -> None:
-        release, exe_file, hash_file = payload
+        release, exe_file, hash_file, expected_hash = payload
         target = Path(sys.executable).resolve()
-        updater = exe_file.parent / f"install-{release.version}.cmd"
-        script = f'''@echo off
-setlocal EnableExtensions EnableDelayedExpansion
-set "source={exe_file}"
-set "target={target}"
-set "checksum={hash_file}"
-set /a tries=0
-:wait_for_app
-tasklist /FI "PID eq {os.getpid()}" /NH 2>nul | findstr /C:"{os.getpid()}" >nul
-if not errorlevel 1 (
-  >nul 2>&1 ping 127.0.0.1 -n 2
-  goto wait_for_app
-)
-:replace_app
-copy /Y "%source%" "%target%" >nul 2>&1
-if errorlevel 1 (
-  set /a tries+=1
-  if !tries! GEQ 30 goto update_failed
-  >nul 2>&1 ping 127.0.0.1 -n 2
-  goto replace_app
-)
-del "%checksum%" >nul 2>&1
-start "" "%target%"
-del "%source%" >nul 2>&1
-del "%~f0" >nul 2>&1
-exit /b 0
-:update_failed
-start "" explorer.exe /select,"%source%"
-exit /b 1
-'''
-        updater.write_text(script, encoding="ascii", newline="\r\n")
+        updater = exe_file.parent / f"install-{release.version}.ps1"
+        update_log = LOG_DIR / f"update-{datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
+        updater.write_text(UPDATE_HELPER_SCRIPT, encoding="utf-8-sig", newline="\r\n")
+        powershell = (
+            Path(os.environ.get("SystemRoot", r"C:\Windows"))
+            / "System32"
+            / "WindowsPowerShell"
+            / "v1.0"
+            / "powershell.exe"
+        )
         flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
-            subprocess, "DETACHED_PROCESS", 0
+            subprocess, "CREATE_NO_WINDOW", 0
         )
         subprocess.Popen(
-            [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", str(updater)],
+            [
+                str(powershell),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-WindowStyle",
+                "Hidden",
+                "-File",
+                str(updater),
+                "-ParentPid",
+                str(os.getpid()),
+                "-Source",
+                str(exe_file),
+                "-Checksum",
+                str(hash_file),
+                "-ExpectedHash",
+                expected_hash,
+                "-Target",
+                str(target),
+                "-Log",
+                str(update_log),
+            ],
             creationflags=flags,
             close_fds=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
-        self._set_status(f"Installing version {release.version}; the app will restart…")
-        self.after(250, self.destroy)
+        self._set_status(
+            f"Installing version {release.version}; the app will restart. Update log: {update_log}"
+        )
+        self.after(750, self.destroy)
 
     def _update_catalog(self) -> None:
         if self.busy:

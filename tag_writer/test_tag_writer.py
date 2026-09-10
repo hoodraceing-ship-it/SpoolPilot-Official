@@ -1,6 +1,7 @@
 import importlib.machinery
 import importlib.util
 import re
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -130,6 +131,31 @@ def test_windows_script_path_is_converted_for_msys():
         Path(r"C:\Users\hoodr\AppData\Local\SpoolPilotTagWriter\pm3-test.cmd")
     )
     assert converted == "/c/Users/hoodr/AppData/Local/SpoolPilotTagWriter/pm3-test.cmd"
+
+
+def test_transactional_update_helper_and_windows_syntax():
+    script = module.UPDATE_HELPER_SCRIPT
+    assert 'Move-Item -LiteralPath $Target -Destination $backup' in script
+    assert 'Get-FileHash -LiteralPath $replacement' in script
+    assert 'New version failed to start; restoring the previous version' in script
+    assert 'Start-Process -FilePath $Target' in script
+    if sys.platform == "win32":
+        with tempfile.TemporaryDirectory() as folder:
+            script_file = Path(folder) / "updater.ps1"
+            script_file.write_text(script, encoding="utf-8-sig")
+            result = subprocess.run(
+                [
+                    "powershell.exe",
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-Command",
+                    "[void][scriptblock]::Create([IO.File]::ReadAllText($args[0]))",
+                    str(script_file),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stderr
 
 
 def make_image():
@@ -289,6 +315,7 @@ if __name__ == "__main__":
     test_reader_diagnostic_explains_no_tag()
     test_release_version_and_assets()
     test_windows_script_path_is_converted_for_msys()
+    test_transactional_update_helper_and_windows_syntax()
     test_full_safe_writer_flow_and_resume()
     test_mismatched_protected_sector_stops_before_any_write()
     print("All tests passed")

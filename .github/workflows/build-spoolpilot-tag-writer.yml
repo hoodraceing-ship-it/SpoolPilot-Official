@@ -25,7 +25,7 @@ jobs:
         run: |
           py -m tag_writer.test_tag_writer
           py -c "from tag_writer import client_support; assert client_support.missing_client_items('.')"
-          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v046.pyw').read_text(); assert '0.4.6' in s; assert 'PYINSTALLER_RESET_ENVIRONMENT' in s; assert 'import tkinter as tk' in s; assert 'ATQA_0004_RE' in s"
+          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v047.pyw').read_text(); assert '0.4.7' in s; assert 'PYINSTALLER_RESET_ENVIRONMENT' in s; assert 'import tkinter as tk' in s; assert 'ATQA_0004_RE' in s; assert 'force=True' in s"
       - name: Build portable EXE
         shell: pwsh
         run: >-
@@ -43,7 +43,7 @@ jobs:
           --add-data "tag_writer/SpoolPilotTagWriter.pyw;."
           --add-data "tag_writer/client_support.py;."
           --name SpoolPilot-Tag-Writer
-          tag_writer/SpoolPilotTagWriter_v046.pyw
+          tag_writer/SpoolPilotTagWriter_v047.pyw
       - name: Smoke test packaged EXE
         shell: pwsh
         run: |
@@ -70,9 +70,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.4.6'
+          $tag = 'tag-writer-v0.4.7'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.6' --notes 'Fixes false Classic 1K rejection by recognizing the Proxmark ATQA 00 04 / SAK 08 signature, updates the pre-write safety check, and shows detected SAK/ATQA values in Diagnosis.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.7' --notes 'Fixes sector trailer protection with current Proxmark clients by using --force only for the deliberate strict-ACL trailer write, then verifying with the selected filament keys before continuing.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

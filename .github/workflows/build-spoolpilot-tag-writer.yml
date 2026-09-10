@@ -1,0 +1,59 @@
+name: Build SpoolPilot Tag Writer
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "tag_writer/**"
+      - ".github/workflows/build-spoolpilot-tag-writer.yml"
+
+jobs:
+  test-and-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run tests
+        shell: pwsh
+        run: py -m tag_writer.test_tag_writer
+      - name: Install PyInstaller
+        run: py -m pip install pyinstaller
+      - name: Build portable EXE
+        shell: pwsh
+        run: >-
+          py -m PyInstaller
+          --noconfirm
+          --clean
+          --onefile
+          --windowed
+          --name SpoolPilot-Tag-Writer
+          tag_writer/SpoolPilotTagWriter.pyw
+      - name: Create SHA-256 file
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash 'dist/SpoolPilot-Tag-Writer.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  SpoolPilot-Tag-Writer.exe" | Set-Content 'dist/SpoolPilot-Tag-Writer.exe.sha256' -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SpoolPilot-Tag-Writer-Windows
+          path: |
+            dist/SpoolPilot-Tag-Writer.exe
+            dist/SpoolPilot-Tag-Writer.exe.sha256
+          if-no-files-found: error
+      - name: Publish Windows app release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'tag-writer-v0.2.0'
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.2.0' --notes 'Safe searchable Windows writer for compatible Bambu filament FUID tags.'
+          }
+          gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

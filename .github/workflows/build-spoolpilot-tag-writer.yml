@@ -20,12 +20,12 @@ jobs:
           python-version: "3.12"
       - name: Install build dependencies
         run: py -m pip install pyinstaller py7zr
-      - name: Run tests
+      - name: Run source tests
         shell: pwsh
         run: |
           py -m tag_writer.test_tag_writer
           py -c "from tag_writer import client_support; assert client_support.missing_client_items('.')"
-          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v044.pyw').read_text(); assert '0.4.4' in s; assert 'PYINSTALLER_RESET_ENVIRONMENT' in s"
+          py -c "from pathlib import Path; s=Path('tag_writer/SpoolPilotTagWriter_v045.pyw').read_text(); assert '0.4.5' in s; assert 'PYINSTALLER_RESET_ENVIRONMENT' in s; assert 'import tkinter as tk' in s"
       - name: Build portable EXE
         shell: pwsh
         run: >-
@@ -36,10 +36,22 @@ jobs:
           --windowed
           --collect-all py7zr
           --hidden-import py7zr
+          --hidden-import tkinter
+          --hidden-import tkinter.ttk
+          --hidden-import tkinter.filedialog
+          --hidden-import tkinter.messagebox
           --add-data "tag_writer/SpoolPilotTagWriter.pyw;."
           --add-data "tag_writer/client_support.py;."
           --name SpoolPilot-Tag-Writer
-          tag_writer/SpoolPilotTagWriter_v044.pyw
+          tag_writer/SpoolPilotTagWriter_v045.pyw
+      - name: Smoke test packaged EXE
+        shell: pwsh
+        run: |
+          $env:PYINSTALLER_RESET_ENVIRONMENT = '1'
+          $process = Start-Process -FilePath 'dist/SpoolPilot-Tag-Writer.exe' -ArgumentList '--self-test' -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged SpoolPilot self-test failed with exit code $($process.ExitCode)"
+          }
       - name: Create SHA-256 file
         shell: pwsh
         run: |
@@ -58,9 +70,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.4.4'
+          $tag = 'tag-writer-v0.4.5'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.4' --notes 'Fixes the PyInstaller parent-process security error during in-app restart, keeps automatic Proxmark client repair, and uses the native Proxmark client command path.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.5' --notes 'Fixes the packaged Windows app missing Tkinter, adds a frozen-EXE smoke test before release, and keeps the safe updater plus automatic Proxmark client repair.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

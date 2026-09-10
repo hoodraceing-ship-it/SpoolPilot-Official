@@ -51,9 +51,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = 'tag-writer-v0.3.0'
+          $tag = 'tag-writer-v0.4.0'
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title 'SpoolPilot Tag Writer 0.3.0' --notes 'Adds a one-click, read-only reader/tag diagnosis report and improves input readability with high-contrast text.'
+            gh release create $tag --title 'SpoolPilot Tag Writer 0.4.0' --notes 'Adds automatic update notifications and one-click verified in-app updates.'
           }
           gh release upload $tag 'dist/SpoolPilot-Tag-Writer.exe' 'dist/SpoolPilot-Tag-Writer.exe.sha256' --clobber

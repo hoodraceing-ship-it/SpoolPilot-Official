@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import queue
 import re
 import subprocess
+import sys
 import threading
 import time
 import traceback
@@ -23,7 +25,7 @@ from tkinter import filedialog, messagebox, ttk
 
 
 APP_NAME = "SpoolPilot Tag Writer"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 FACTORY_UID = "AA55C396"
 DEFAULT_KEY = "FFFFFFFFFFFF"
 LIBRARY_REPOSITORY = "queengooborg/Bambu-Lab-RFID-Library"
@@ -34,6 +36,10 @@ LIBRARY_TREE_URL = (
 RAW_LIBRARY_URL = (
     "https://raw.githubusercontent.com/queengooborg/"
     "Bambu-Lab-RFID-Library/main/"
+)
+LATEST_RELEASE_URL = (
+    "https://api.github.com/repos/hoodraceing-ship-it/"
+    "SpoolPilot-Official/releases/latest"
 )
 
 LOCAL_APPDATA = Path(os.environ.get("LOCALAPPDATA", Path.home()))
@@ -279,6 +285,49 @@ class DiagnosticReport:
     @property
     def display_text(self) -> str:
         return f"{self.summary}\n\n{self.details}\n\nRaw diagnostic log:\n{self.log_file}"
+
+
+@dataclass(frozen=True)
+class AppRelease:
+    version: str
+    page_url: str
+    exe_url: str
+    hash_url: str
+
+
+def version_tuple(value: str) -> tuple[int, ...]:
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", value)
+    if not match:
+        raise ValueError(f"Invalid application version: {value}")
+    return tuple(int(part) for part in match.groups())
+
+
+def parse_release(payload: dict) -> AppRelease:
+    version = str(payload.get("tag_name", ""))
+    version_tuple(version)
+    assets = {
+        str(asset.get("name", "")): str(asset.get("browser_download_url", ""))
+        for asset in payload.get("assets", [])
+    }
+    exe_url = assets.get("SpoolPilot-Tag-Writer.exe", "")
+    hash_url = assets.get("SpoolPilot-Tag-Writer.exe.sha256", "")
+    if not exe_url or not hash_url:
+        raise RuntimeError("The latest release is missing its verified Windows application files")
+    return AppRelease(
+        version=".".join(str(part) for part in version_tuple(version)),
+        page_url=str(payload.get("html_url", "")),
+        exe_url=exe_url,
+        hash_url=hash_url,
+    )
+
+
+def fetch_latest_release() -> AppRelease:
+    request = urllib.request.Request(
+        LATEST_RELEASE_URL,
+        headers={"User-Agent": f"SpoolPilotTagWriter/{APP_VERSION}"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return parse_release(json.load(response))
 
 
 class Pm3Runner:
@@ -895,6 +944,9 @@ class TagWriterApp(tk.Tk):
         self.entries: list[FilamentEntry] = []
         self.filtered_entries: list[FilamentEntry] = []
         self.selected_entry: FilamentEntry | None = None
+        self.latest_release: AppRelease | None = None
+        self.update_checking = False
+        self.update_notified_version: str | None = None
         self.events: queue.Queue[tuple[str, object]] = queue.Queue()
         self.busy = False
         self._build_style()
@@ -949,15 +1001,35 @@ class TagWriterApp(tk.Tk):
         style.configure("TButton", padding=(12, 8))
         style.configure("Write.TButton", font=("Segoe UI Semibold", 12), padding=(18, 12))
         style.map("Write.TButton", background=[("!disabled", "#1c9b5f"), ("active", "#24b872")])
+        style.configure(
+            "UpdateAvailable.TButton",
+            font=("Segoe UI Semibold", 10),
+            padding=(12, 8),
+            background="#f59e0b",
+            foreground="#111827",
+        )
+        style.map(
+            "UpdateAvailable.TButton",
+            background=[("active", "#fbbf24"), ("!disabled", "#f59e0b")],
+            foreground=[("!disabled", "#111827")],
+        )
         style.configure("Treeview", rowheight=30, background="#18212c", fieldbackground="#18212c")
         style.configure("Treeview.Heading", font=("Segoe UI Semibold", 10))
 
     def _build_ui(self) -> None:
         header = ttk.Frame(self, padding=(22, 18))
         header.pack(fill="x")
-        ttk.Label(header, text="SpoolPilot Tag Writer", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(
+        self.update_app_button = ttk.Button(
             header,
+            text="Check for Updates",
+            command=self._update_button_clicked,
+        )
+        self.update_app_button.pack(side="right", anchor="n", padx=(12, 0))
+        header_text = ttk.Frame(header)
+        header_text.pack(side="left", fill="x", expand=True)
+        ttk.Label(header_text, text="SpoolPilot Tag Writer", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            header_text,
             text="Choose filament → check one isolated tag → write and verify",
             style="Sub.TLabel",
         ).pack(anchor="w", pady=(3, 0))
@@ -1071,6 +1143,7 @@ class TagWriterApp(tk.Tk):
             self._set_status(f"Library ready: {len(cached)} choices")
         else:
             self._update_catalog()
+        self.after(1200, lambda: self._check_for_app_update(silent=True))
 
     def _browse_client(self) -> None:
         folder = filedialog.askdirectory(title="Select the RRG client folder containing setup.bat")
@@ -1086,6 +1159,127 @@ class TagWriterApp(tk.Tk):
             self._set_status("Proxmark port detected" if ports else "No USB serial Proxmark detected")
         except Exception as exc:
             self._set_status(f"Port detection failed: {exc}")
+
+    def _update_button_clicked(self) -> None:
+        if self.latest_release and version_tuple(self.latest_release.version) > version_tuple(APP_VERSION):
+            self._confirm_app_update(self.latest_release)
+        else:
+            self._check_for_app_update(silent=False)
+
+    def _check_for_app_update(self, silent: bool) -> None:
+        if self.update_checking:
+            return
+        self.update_checking = True
+        self.update_app_button.configure(text="Checking…", state="disabled", style="TButton")
+
+        def worker():
+            try:
+                release = fetch_latest_release()
+                self.events.put(("update_check_done", (release, silent)))
+            except Exception as exc:
+                self.events.put(("update_check_error", (str(exc), silent)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _confirm_app_update(self, release: AppRelease) -> None:
+        if not getattr(sys, "frozen", False):
+            messagebox.showinfo(
+                "Update available",
+                f"Version {release.version} is available. Install it from:\n\n{release.page_url}",
+                parent=self,
+            )
+            return
+        confirmed = messagebox.askyesno(
+            "Install SpoolPilot update",
+            f"Install SpoolPilot Tag Writer {release.version}?\n\n"
+            "The download will be verified, the app will close, replace itself, and reopen.",
+            parent=self,
+        )
+        if not confirmed:
+            return
+
+        def task():
+            update_directory = APP_DIR / "updates"
+            update_directory.mkdir(parents=True, exist_ok=True)
+            exe_file = update_directory / f"SpoolPilot-Tag-Writer-{release.version}.exe.download"
+            hash_file = update_directory / f"SpoolPilot-Tag-Writer-{release.version}.sha256"
+            request_headers = {"User-Agent": f"SpoolPilotTagWriter/{APP_VERSION}"}
+            for url, destination in (
+                (release.exe_url, exe_file),
+                (release.hash_url, hash_file),
+            ):
+                request = urllib.request.Request(url, headers=request_headers)
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    with destination.open("wb") as handle:
+                        while chunk := response.read(1024 * 1024):
+                            handle.write(chunk)
+
+            expected_match = re.search(
+                r"\b([0-9A-Fa-f]{64})\b",
+                hash_file.read_text(encoding="ascii", errors="replace"),
+            )
+            if not expected_match:
+                exe_file.unlink(missing_ok=True)
+                raise RuntimeError("The update checksum file is invalid")
+            expected_hash = expected_match.group(1).lower()
+            digest = hashlib.sha256()
+            with exe_file.open("rb") as handle:
+                while chunk := handle.read(1024 * 1024):
+                    digest.update(chunk)
+            if digest.hexdigest().lower() != expected_hash:
+                exe_file.unlink(missing_ok=True)
+                raise RuntimeError("The update failed SHA-256 verification and was removed")
+            return release, exe_file, hash_file
+
+        self._start_task("app_update", task)
+
+    def _launch_app_update(
+        self,
+        payload: tuple[AppRelease, Path, Path],
+    ) -> None:
+        release, exe_file, hash_file = payload
+        target = Path(sys.executable).resolve()
+        updater = exe_file.parent / f"install-{release.version}.cmd"
+        script = f'''@echo off
+setlocal EnableExtensions EnableDelayedExpansion
+set "source={exe_file}"
+set "target={target}"
+set "checksum={hash_file}"
+set /a tries=0
+:wait_for_app
+tasklist /FI "PID eq {os.getpid()}" /NH 2>nul | findstr /C:"{os.getpid()}" >nul
+if not errorlevel 1 (
+  >nul 2>&1 ping 127.0.0.1 -n 2
+  goto wait_for_app
+)
+:replace_app
+copy /Y "%source%" "%target%" >nul 2>&1
+if errorlevel 1 (
+  set /a tries+=1
+  if !tries! GEQ 30 goto update_failed
+  >nul 2>&1 ping 127.0.0.1 -n 2
+  goto replace_app
+)
+del "%checksum%" >nul 2>&1
+start "" "%target%"
+del "%source%" >nul 2>&1
+del "%~f0" >nul 2>&1
+exit /b 0
+:update_failed
+start "" explorer.exe /select,"%source%"
+exit /b 1
+'''
+        updater.write_text(script, encoding="ascii", newline="\r\n")
+        flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(
+            subprocess, "DETACHED_PROCESS", 0
+        )
+        subprocess.Popen(
+            [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", str(updater)],
+            creationflags=flags,
+            close_fds=True,
+        )
+        self._set_status(f"Installing version {release.version}; the app will restart…")
+        self.after(250, self.destroy)
 
     def _update_catalog(self) -> None:
         if self.busy:
@@ -1219,6 +1413,7 @@ class TagWriterApp(tk.Tk):
     def _set_controls(self, enabled: bool) -> None:
         state = "normal" if enabled else "disabled"
         for widget in (
+            self.update_app_button,
             self.update_button,
             self.diagnose_button,
             self.check_button,
@@ -1322,6 +1517,56 @@ class TagWriterApp(tk.Tk):
                     report = payload
                     self._set_status(report.summary)
                     self._show_diagnostic_report(report)
+                elif kind == "update_check_done":
+                    release, silent = payload
+                    self.update_checking = False
+                    if version_tuple(release.version) > version_tuple(APP_VERSION):
+                        self.latest_release = release
+                        self.update_app_button.configure(
+                            text=f"UPDATE AVAILABLE • v{release.version}",
+                            state="normal",
+                            style="UpdateAvailable.TButton",
+                        )
+                        self._set_status(f"Update available: SpoolPilot Tag Writer {release.version}")
+                        if self.update_notified_version != release.version:
+                            self.update_notified_version = release.version
+                            messagebox.showinfo(
+                                "SpoolPilot update available",
+                                f"Version {release.version} is available.\n\n"
+                                "Click the orange UPDATE AVAILABLE button to install it automatically.",
+                                parent=self,
+                            )
+                    else:
+                        self.latest_release = None
+                        self.update_app_button.configure(
+                            text="Check for Updates",
+                            state="normal",
+                            style="TButton",
+                        )
+                        if not silent:
+                            messagebox.showinfo(
+                                "SpoolPilot updates",
+                                f"You already have the newest version ({APP_VERSION}).",
+                                parent=self,
+                            )
+                elif kind == "update_check_error":
+                    message, silent = payload
+                    self.update_checking = False
+                    self.update_app_button.configure(
+                        text="Check for Updates",
+                        state="normal",
+                        style="TButton",
+                    )
+                    if not silent:
+                        messagebox.showerror(
+                            "Update check failed",
+                            f"SpoolPilot could not check for updates.\n\n{message}",
+                            parent=self,
+                        )
+                elif kind == "app_update_done":
+                    self.busy = False
+                    self._set_controls(True)
+                    self._launch_app_update(payload)
                 elif kind == "error":
                     message, details = payload
                     self.busy = False

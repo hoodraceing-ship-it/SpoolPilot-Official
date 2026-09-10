@@ -103,6 +103,28 @@ def test_reader_diagnostic_explains_no_tag():
     assert "Tag detections: 0/10" in report.details
 
 
+def test_release_version_and_assets():
+    release = module.parse_release(
+        {
+            "tag_name": "tag-writer-v0.4.0",
+            "html_url": "https://example.test/release",
+            "assets": [
+                {
+                    "name": "SpoolPilot-Tag-Writer.exe",
+                    "browser_download_url": "https://example.test/app.exe",
+                },
+                {
+                    "name": "SpoolPilot-Tag-Writer.exe.sha256",
+                    "browser_download_url": "https://example.test/app.sha256",
+                },
+            ],
+        }
+    )
+    assert release.version == "0.4.0"
+    assert module.version_tuple("tag-writer-v1.12.3") > module.version_tuple("1.9.9")
+    assert release.exe_url.endswith("app.exe")
+
+
 def make_image():
     dump = bytearray(1024)
     uid = bytes.fromhex("064729CE")
@@ -258,6 +280,7 @@ if __name__ == "__main__":
     test_reader_diagnostic_passes_stable_fuid_tag()
     test_reader_diagnostic_explains_collision()
     test_reader_diagnostic_explains_no_tag()
+    test_release_version_and_assets()
     test_full_safe_writer_flow_and_resume()
     test_mismatched_protected_sector_stops_before_any_write()
     print("All tests passed")

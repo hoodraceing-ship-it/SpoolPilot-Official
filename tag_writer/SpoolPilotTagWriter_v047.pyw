@@ -86,9 +86,10 @@ def _run_native(self, commands, phase: str, timeout: int = 300):
     process = None
     for attempt in range(1, 5):
         started = time.monotonic()
+        command_cwd = getattr(self, "_spoolpilot_command_cwd", self.client_directory)
         process = subprocess.Popen(
             argv,
-            cwd=str(self.client_directory),
+            cwd=str(command_cwd),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
